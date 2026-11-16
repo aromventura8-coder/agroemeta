@@ -1,47 +1,95 @@
 # GUÍA DE DESPLIEGUE EN INTERNET DE AGROEMETA AGI
 ### Escuela E.M.E.T.A. N° 3130 (Tartagal, Salta, Argentina)
 
-Esta guía le permitirá publicar **Agroemeta AGI** en internet de forma **100% gratuita**, con **HTTPS seguro**, dominio público propio y listo para ser usado por miles de estudiantes desde computadoras o celulares.
+Publicar **Agroemeta AGI** en internet de forma **100% gratuita**, con **HTTPS seguro**, dominio público y listo para que lo usen miles de estudiantes desde computadoras o celulares.
 
 ---
 
-## 🚀 OPCIÓN 1: VERCEL (RECOMENDADA - 1 CLIC Y CERO COSTO)
+## 🔑 CÓMO FUNCIONA LA LLAVE DE GEMINI (sin que nadie la vea)
 
-Vercel ejecuta el frontend ultrarrápido y hospeda automáticamente la función backend segura `/api/chat.js` con Rate Limiting y protección de claves API.
+La llave **NO está en el código** y **no se le pide a ningún usuario**. Vive únicamente en el servidor:
 
-### Pasos:
-1. Cree una cuenta gratuita en [Vercel](https://vercel.com) (puede iniciar sesión con GitHub).
-2. Suba la carpeta del proyecto a un repositorio de GitHub (o instale la herramienta oficial `npm i -g vercel`).
-3. En el panel de Vercel, haga clic en **"Add New Project"** e importe el repositorio.
-4. En la sección **"Environment Variables" (Variables de Entorno)**, agregue:
+| Capa | Dónde vive la llave | Quién la ve |
+|---|---|---|
+| Vercel | Variable de entorno `GEMINI_API_KEY` del proyecto | Nadie (solo Vercel) |
+| Netlify | Variable de entorno `GEMINI_API_KEY` del sitio | Nadie (solo Netlify) |
+| Servidor local | Archivo `.env` (ignorado por git) | Solo tu PC |
+
+El navegador llama a `/api/chat`; el servidor agrega la llave, llama a Google y devuelve **solo la respuesta**. Si la llave falta o se agota la cuota, el servidor responde con un código de respaldo y la web **sigue funcionando** con la base de conocimiento local.
+
+---
+
+## 🚀 OPCIÓN 1: VERCEL (RECOMENDADA - GRATIS)
+
+**Estado actual:** ya publicado en **https://agroemeta.vercel.app**
+
+### Pasos (si querés rehacerlo o cambiar algo):
+1. Entrá a [vercel.com](https://vercel.com) e iniciá sesión con GitHub.
+2. **Add New Project → Import Git Repository** → elegí `aromventura8-coder/agroemeta`.
+3. En la configuración del proyecto:
+   - **Root Directory:** `./`
+   - **Framework Preset:** `Other`
+   - **Build Command:** *(dejar vacío)*
+   - **Output Directory:** `.`   ← **importante**, así se sirve el sitio desde la raíz
+4. En **Environment Variables** agregá:
    - **Key:** `GEMINI_API_KEY`
-   - **Value:** *(Pegue su clave gratuita de Google AI Studio / Gemini)*
-5. Haga clic en **"Deploy"**.
-6. En menos de 45 segundos, Vercel le entregará su enlace público seguro, por ejemplo:
-   `https://agroemeta-agi.vercel.app`
+   - **Value:** tu llave de Google AI Studio
+   - **Environments:** `Production` + `Preview`
+5. Clic en **Deploy**. Vercel publica en ~45 segundos.
+6. Cada `git push` a `main` redespliega automáticamente.
 
 ---
 
-## 🌐 OPCIÓN 2: NETLIFY
+## 🌐 OPCIÓN 2: NETLIFY (gratis, con funciones)
 
-1. Cree una cuenta gratuita en [Netlify](https://www.netlify.com).
-2. Arrastre y suelte la carpeta de su proyecto en la sección **"Deploy manually"** o conecte su repositorio de GitHub.
-3. Vaya a **Site configuration > Environment variables** y defina:
-   - `GEMINI_API_KEY`: *(Su clave de Gemini)*
-4. Netlify publicará la web con HTTPS y dominio gratuito `https://tu-sitio.netlify.app`.
+⚠️ **Importante:** las Netlify Functions **solo funcionan con el repositorio conectado a Git** (o con la CLI). El deploy "arrastrar y soltar" **no** publica funciones.
+
+1. Conectá el repositorio `aromventura8-coder/agroemeta` al sitio de Netlify (rama `main`).
+2. Netlify lee solo el `netlify.toml` incluido:
+   ```toml
+   [build]
+     publish = "."
+     command = "echo no-build-step"
+   [functions]
+     directory = "netlify/functions"
+   ```
+3. En **Site configuration → Environment variables** agregá `GEMINI_API_KEY` (Production + Preview + Development).
+4. Deploy. La función queda expuesta en `/api/chat`.
+
+Para actualizar **solo el sitio estático** (sin funciones) podés arrastrar `AGROEMETA_WEB_DEPLOY.zip` al panel de Deploys.
+
+---
+
+## 💻 SERVIDOR LOCAL (tu PC)
+
+```powershell
+# 1) crear la llave local (no se sube al repositorio)
+copy .env.example .env
+#    editá .env y pegá GEMINI_API_KEY=tu_llave
+
+# 2) arrancar
+python server.py
+```
+
+El servidor local (puerto **8085**) tiene los mismos endpoints que la nube:
+- `GET  /api/config` → configuración de marca
+- `POST /api/chat`  → IA real con Gemini (modelos `flash-lite`, ~2-4 s)
+- `POST /api/agent` → mismo motor (compatibilidad con Antigravity)
 
 ---
 
 ## 📱 CÓMO INSTALAR EN CELULARES (PWA)
-1. Abra el enlace de la web publicada desde Google Chrome en Android o Safari en iPhone.
-2. **Android:** Toque los tres puntos arriba a la derecha y seleccione **"Instalar aplicación"** o **"Agregar a la pantalla principal"**.
-3. **iPhone:** Toque el botón de compartir y seleccione **"Agregar a pantalla de inicio"**.
-4. ¡Listo! Tendrá a Agroemeta AGI con su icono oficial como si fuera una aplicación nativa descargada de la tienda.
+1. Abrí el enlace publicado desde Google Chrome en Android o Safari en iPhone.
+2. **Android:** menú de tres puntos → **"Instalar aplicación"** o **"Agregar a la pantalla de inicio"**.
+3. **iPhone:** botón de compartir → **"Agregar a pantalla de inicio"**.
+4. ¡Listo! Tenés Agroemeta AGI con su icono oficial, como una app nativa.
 
 ---
 
 ## 🔒 ARQUITECTURA DE SEGURIDAD IMPLEMENTADA
-- **Cero Exposición:** Su clave de API nunca viaja al navegador de los estudiantes. Se procesa exclusivamente en `/api/chat.js`.
-- **Anti-Abuso (Rate Limiting):** Límite estricto de hasta 20 peticiones por minuto por dirección IP.
-- **Cabeceras HTTP Seguras:** `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`.
-- **Ahorro de Datos:** Cero librerías pesadas, carga instantánea en 3G/4G y funcionamiento offline mediante `sw.js`.
+- **Cero Exposición:** la llave de API nunca viaja al navegador ni está en el repositorio (verificado con `git grep`).
+- **Sin límites de uso:** el asistente nunca se bloquea; si la cuota de Google se agota, cae automáticamente a la base de conocimiento local y **sigue respondiendo**.
+- **Modelos con redundancia:** si un modelo falla o no está disponible, se prueba el siguiente (`flash-lite` primero por velocidad).
+- **Cabeceras HTTP Seguras:** `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`.
+- **Sanitización de entradas** en el servidor (límite de longitud y neutralización de `<script>`).
+- **Ahorro de Datos:** cero librerías pesadas, carga instantánea en 3G/4G y funcionamiento offline mediante `sw.js`.
