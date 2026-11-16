@@ -7,6 +7,7 @@
   
   <!-- Manifest PWA y Tema Móvil -->
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BE%3C/text%3E%3C/svg%3E">
   <meta name="theme-color" content="#00d2ff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1048,6 +1049,9 @@
           } : null
         };
 
+        // Respuesta de respaldo que entrega el servidor cuando la IA remota no esta disponible
+        let serverFallback = "";
+
         // 1. Si estamos en un hosting como Netlify o Vercel, probar /api/chat
         try {
           const chatRes = await fetch('/api/chat', {
@@ -1055,14 +1059,16 @@
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(payload)
           });
+          const chatData = await chatRes.json().catch(() => ({}));
           if (chatRes.ok) {
-            const chatData = await chatRes.json();
             const reply = chatData.response || chatData.text || chatData.message;
             if (reply) {
               this.history.push({ role: 'user', text: userMessage });
               this.history.push({ role: 'model', text: reply });
               return reply;
             }
+          } else {
+            serverFallback = chatData.fallback_response || "";
           }
         } catch (_) {}
 
@@ -1074,39 +1080,66 @@
               headers: { "Content-Type": "application/json", "Accept": "application/json" },
               body: JSON.stringify(payload)
             });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-              const data = await res.json();
               const serverText = data.response || data.remote_response || data.text || data.message;
               if (serverText) {
                 this.history.push({ role: 'user', text: userMessage });
                 this.history.push({ role: 'model', text: serverText });
                 return serverText;
               }
+            } else {
+              serverFallback = data.fallback_response || serverFallback;
             }
           } catch (_) {}
         }
 
         // 3. EN INTERNET (Netlify) O FALLBACK LOCAL: Motor Cognitivo Inteligente Autónomo (100% Garantizado)
-        if (window.agroEngine) {
+        const engine = window.agroEngine;
+        if (engine) {
           try {
-            const localAnswer = await window.agroEngine.ask(userMessage);
-            if (localAnswer) {
+            // 3.1 Base de conocimiento local (respuestas expertas ya redactadas)
+            let kbAnswer = "";
+            try {
+              if (typeof engine.searchKnowledgeBase === "function") {
+                kbAnswer = engine.searchKnowledgeBase(userMessage) || "";
+              }
+            } catch (_) {}
+            if (kbAnswer) {
               this.history.push({ role: 'user', text: userMessage });
-              this.history.push({ role: 'model', text: localAnswer });
-              return localAnswer;
+              this.history.push({ role: 'model', text: kbAnswer });
+              return kbAnswer;
+            }
+            // 3.2 Motor con IA en el navegador (solo si el usuario configuro su propia llave)
+            const hasKey = typeof engine.hasApiKey === "function" ? engine.hasApiKey() : false;
+            if (hasKey && typeof engine.ask === "function") {
+              const aiAnswer = await engine.ask(userMessage);
+              if (aiAnswer) {
+                this.history.push({ role: 'user', text: userMessage });
+                this.history.push({ role: 'model', text: aiAnswer });
+                return aiAnswer;
+              }
             }
           } catch (eEngine) {
-            console.warn("[AGROEMETA] Error en llamada con llave, aplicando base local:", eEngine);
-            const fallbackLocal = window.agroEngine.searchKnowledgeBase(userMessage) || window.agroEngine.generateReasonedGeneralResponse(userMessage);
-            if (fallbackLocal) {
-              this.history.push({ role: 'user', text: userMessage });
-              this.history.push({ role: 'model', text: fallbackLocal });
-              return fallbackLocal;
-            }
+            console.warn("[AGROEMETA] Error en el motor local, aplicando base de conocimiento:", eEngine);
           }
         }
 
-        return `A tus órdenes. He procesado tu consulta sobre "${userMessage}". Mis subsistemas agronómicos y pedagógicos están plenamente activos.`;
+        // 4. Respaldo del servidor y, en ultimo caso, respuesta garantizada (nunca vacio)
+        let lastAnswer = serverFallback || "";
+        if (!lastAnswer && engine) {
+          try {
+            if (typeof engine.generateReasonedGeneralResponse === "function") {
+              lastAnswer = engine.generateReasonedGeneralResponse(userMessage) || "";
+            }
+          } catch (_) {}
+        }
+        if (!lastAnswer) {
+          lastAnswer = `A sus Ã³rdenes, caballero. He procesado su consulta sobre "${userMessage}". Mis subsistemas agronÃ³micos y pedagÃ³gicos estÃ¡n plenamente activos.`;
+        }
+        this.history.push({ role: 'user', text: userMessage });
+        this.history.push({ role: 'model', text: lastAnswer });
+        return lastAnswer;
       }
     }
 
@@ -1275,25 +1308,34 @@
           console.warn("[AGROEMETA] Backend desconectado, activando motor cognitivo integrado:", err);
           
           let fallbackResponse = null;
-          if (window.agroEngine) {
-            try {
-              fallbackResponse = await window.agroEngine.ask(query);
-            } catch (e2) {
-              fallbackResponse = window.agroEngine.searchKnowledgeBase(query) || window.agroEngine.generateReasonedGeneralResponse(query);
+          try {
+            const eng = window.agroEngine;
+            if (eng) {
+              try {
+                fallbackResponse = (eng.searchKnowledgeBase(query) || (await eng.ask(query))) || "";
+              } catch (e2) {
+                try {
+                  fallbackResponse = (eng.searchKnowledgeBase(query) || eng.generateReasonedGeneralResponse(query)) || "";
+                } catch (e3) {
+                  fallbackResponse = "";
+                }
+              }
             }
+          } catch (eEngine) {
+            console.warn("[AGROEMETA] Motor local no disponible:", eEngine);
+            fallbackResponse = "";
           }
 
           setThinkingState(false);
 
-          if (fallbackResponse) {
+          if (!fallbackResponse) {
+            fallbackResponse = `A sus Ã³rdenes, caballero. He procesado su consulta sobre "${query}". Mis subsistemas agronÃ³micos y educativos estÃ¡n listos para asistirte.`;
+          }
+          try {
             appendMessage("AGROEMETA", fallbackResponse, "agroemeta");
-            if (!isVoiceMuted) window.agroAudio.speak(fallbackResponse);
-          } else {
-            const fallbackDirect = window.agroEngine 
-              ? window.agroEngine.generateReasonedGeneralResponse(query) 
-              : `A tus órdenes. He procesado tu consulta sobre "${query}". Mis subsistemas agronómicos y educativos están listos para asistirte.`;
-            appendMessage("AGROEMETA", fallbackDirect, "agroemeta");
-            if (!isVoiceMuted) window.agroAudio.speak(fallbackDirect);
+            if (!isVoiceMuted && window.agroAudio) window.agroAudio.speak(fallbackResponse);
+          } catch (eShow) {
+            console.warn("[AGROEMETA] No se pudo renderizar la respuesta:", eShow);
           }
         }
       }
@@ -1314,13 +1356,14 @@
       function appendMessage(sender, text, type) {
         const row = document.createElement("div");
         row.className = `bubble-row bubble-${type}`;
-        const formatted = formatResponseText(text);
+        const safeText = String(text == null ? "" : text);
+        const formatted = formatResponseText(safeText);
 
         let actionHtml = "";
         if (type === "agroemeta") {
           actionHtml = `
             <div class="bubble-actions">
-              <button class="msg-voice-replay" onclick="window.agroAudio.speak('${escapeQuotes(text)}')">🔊 Escuchar en voz</button>
+              <button class="msg-voice-replay" onclick="window.agroAudio.speak('${escapeQuotes(safeText)}')">🔊 Escuchar en voz</button>
             </div>
           `;
         }

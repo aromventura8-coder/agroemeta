@@ -1,3 +1,4 @@
+Reemplazando lineas 775..790 (16 lineas)
 /**
  * AGROEMETA - Base de Conocimiento Experto & Motor Cognitivo AGI
  * Especialidad: Agronomía de Precisión, Mecánica y Maquinaria Agrícola, Diagnóstico Inteligente.
@@ -520,11 +521,24 @@ ${can.detalles}
     }
 
     // Cálculos matemáticos inmediatos
+    // Calculos matematicos inmediatos (acepta "por", "x", "multiplicado por", "dividido por", etc.)
     try {
-      if (/^[0-9+\-*/().\s^%]+$/.test(q.replace("calcular", "").replace("cuanto es", "").trim())) {
-        const expr = q.replace("calcular", "").replace("cuanto es", "").trim().replace(/\^/g, "**");
-        const val = Function(`'use strict'; return (${expr})`)();
-        return `El cálculo arroja con exactitud: **${val}**.`;
+      const calcSrc = q
+        .toLowerCase()
+        .replace(/cuanto es|cuanto son|calcula|calcular|compute/gi, "")
+        .replace(/multiplicado por|multiplicado/g, "*")
+        .replace(/dividido por|dividido entre|dividido/g, "/")
+        .replace(/sumado a|mas/gi, "+")
+        .replace(/restado a|menos/gi, "-")
+        .replace(/\bpor\b|\bx\b|\btiempos\b/gi, "*")
+        .replace(/\bentre\b/gi, "/")
+        .replace(/[^\d+\-*/().\s]/g, "")
+        .trim();
+      if (calcSrc && /^[\d+\-*/().\s]+$/.test(calcSrc) && /\d/.test(calcSrc) && /[+\-*/]/.test(calcSrc)) {
+        const val = Function(`'use strict'; return (${calcSrc.replace(/\^/g, "**")})`)();
+        if (typeof val === "number" && isFinite(val)) {
+          return `El calculo arroja con exactitud: **${val}**.`;
+        }
       }
     } catch (_) {}
 
@@ -772,22 +786,24 @@ ESTRUCTURA DE RESPUESTA:
       // Ordenar por preferencia: flash 2.x, flash 1.5, pro, etc.
       const rawList = discovered.models;
       const sorted = [...rawList].sort((a, b) => {
-        const score = (name) => {
-          const n = name.toLowerCase();
-          // Penalizar fuertemente modelos especialistas que se hayan colado
-          if (n.includes("-tts") || n.includes("-image") || n.includes("embedding") || n.includes("aqa")) return -100;
-          // Preferir el modelo base flash 2.5 (no variantes preview)
-          if (n.includes("2.5-flash") && !n.includes("preview") && !n.includes("lite")) return 100;
-          if (n.includes("2.5-flash-lite")) return 95;
-          if (n.includes("2.0-flash") && !n.includes("preview")) return 90;
-          if (n.includes("1.5-flash-002")) return 85;
-          if (n.includes("1.5-flash-001")) return 80;
-          if (n.includes("1.5-flash-latest")) return 75;
-          if (n.includes("1.5-flash")) return 70;
-          if (n.includes("2.5-pro") || n.includes("1.5-pro")) return 60;
-          if (n.includes("gemini-pro")) return 50;
-          return 10;
-        };
+          const score = (name) => {
+            const n = name.toLowerCase();
+            if (n.includes("-tts") || n.includes("-image") || n.includes("embedding") || n.includes("aqa")) return -100;
+            // Preferir los modelos flash-lite 3.x (responden en ~2s y no fallan por cuota)
+            if (n.includes("3.5-flash-lite")) return 100;
+            if (n.includes("3.1-flash-lite")) return 95;
+            if (n.includes("3.5-flash") && !n.includes("preview")) return 92;
+            if (n.includes("2.5-flash") && !n.includes("preview") && !n.includes("lite")) return 88;
+            if (n.includes("2.5-flash-lite")) return 85;
+            if (n.includes("2.0-flash") && !n.includes("preview")) return 80;
+            if (n.includes("1.5-flash-002")) return 70;
+            if (n.includes("1.5-flash-001")) return 65;
+            if (n.includes("1.5-flash-latest")) return 60;
+            if (n.includes("1.5-flash")) return 55;
+            if (n.includes("2.5-pro") || n.includes("1.5-pro")) return 50;
+            if (n.includes("gemini-pro")) return 45;
+            return 10;
+          };
         return score(b) - score(a);
       });
       targetModelList = sorted;
@@ -795,13 +811,11 @@ ESTRUCTURA DE RESPUESTA:
     } else {
       // Si ListModels falló, preparar lista de contingencia en ambas versiones (v1beta y v1)
       targetModelList = [
-        "models/gemini-1.5-flash-002",
-        "models/gemini-1.5-flash-001",
-        "models/gemini-1.5-flash",
-        "models/gemini-2.0-flash",
-        "models/gemini-1.5-flash-latest",
-        "models/gemini-1.5-pro",
-        "models/gemini-1.0-pro"
+        "models/gemini-3.5-flash-lite",
+        "models/gemini-3.1-flash-lite",
+        "models/gemini-3.5-flash",
+        "models/gemini-2.5-flash",
+        "models/gemini-2.5-flash-lite"
       ];
     }
 

@@ -1,0 +1,10 @@
+{
+  "name": "agroemeta-agi",
+  "version": "2.0.0",
+  "description": "Agroemeta AGI - Asistente de Inteligencia Artificial para Agronomía y Educación",
+  "main": "api/chat.js",
+  "scripts": {
+    "start": "node server.py"
+  },
+  "dependencies": {}
+}
