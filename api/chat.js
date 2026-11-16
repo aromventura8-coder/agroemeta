@@ -115,7 +115,7 @@ module.exports = async (req, res) => {
     }
 
     // Llamada oficial al modelo Gemini 2.5/Flash mediante REST seguro
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
 
     const formattedContents = [];
     history.forEach((h) => {

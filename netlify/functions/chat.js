@@ -11,14 +11,18 @@
 // se agota la cuota o no hay llave, el frontend cae a la base local y el
 // asistente sigue respondiendo igual.
 
-// Modelos candidatos, en orden de preferencia. Se usa el primero que responda.
+// Modelos candidatos, en orden de preferencia (los "lite" son los más rápidos).
+// Se usa el primero que responda con texto; si uno falla, se pasa al siguiente.
 const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro'
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-2.5-flash'
 ];
+
+// Netlify corta las funciones síncronas cerca de los 10s: cada intento se aborta
+// a los 8s para poder probar el siguiente modelo antes del corte.
+const PER_ATTEMPT_TIMEOUT_MS = 8000;
 
 // System Prompt de Élite de Agroemeta AGI
 const AGROEMETA_SYSTEM_PROMPT = `Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
@@ -135,7 +139,7 @@ exports.handler = async (event) => {
   const payload = {
     systemInstruction: { parts: [{ text: AGROEMETA_SYSTEM_PROMPT }] },
     contents,
-    generationConfig: { temperature: 0.65, maxOutputTokens: 3000 }
+    generationConfig: { temperature: 0.65, maxOutputTokens: 2048 }
   };
 
   // 5. Llamada a Gemini probando modelos en orden
@@ -146,7 +150,8 @@ exports.handler = async (event) => {
       const aiRes = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS)
       });
 
       if (!aiRes.ok) {
