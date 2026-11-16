@@ -5,7 +5,7 @@
 # Secretos y variables de entorno (la llave de Gemini vive SOLO en Netlify)
 .env
 .env.*
-*.local
+!.env.example
 secrets.json
 
 # Netlify local
