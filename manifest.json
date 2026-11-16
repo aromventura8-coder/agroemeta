@@ -1,0 +1,19 @@
+{
+  "name": "Agroemeta AGI - Escuela E.M.E.T.A. N° 3130",
+  "short_name": "Agroemeta AGI",
+  "description": "Asistente de Inteligencia Artificial para Agronomía, Educación y Ciencias",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04070c",
+  "theme_color": "#00d2ff",
+  "lang": "es-AR",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%2304070c' stroke='%2300d2ff' stroke-width='4'/><circle cx='50' cy='50' r='20' fill='%2300d2ff' opacity='0.85'/><path d='M50 15 L50 85 M15 50 L85 50' stroke='%2338bdf8' stroke-width='2' opacity='0.4'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

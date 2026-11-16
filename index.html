@@ -744,7 +744,7 @@
           <div class="orb-specular"></div>
         </div>
       </div>
-      <div class="orb-state-caption" id="orbStateText">En calma, a sus órdenes</div>
+      <div class="orb-state-caption" id="orbStateText">En línea y listo para ayudarte</div>
     </div>
 
     <!-- Barra de Documento Activo -->
@@ -762,11 +762,7 @@
       <div class="bubble-row bubble-agroemeta">
         <div class="avatar-tag">AGROEMETA</div>
         <div class="bubble-content">
-          A sus órdenes, caballero. Soy <strong>AGROEMETA</strong>, su mayordomo de inteligencia artificial.
-          <br><br>
-          Estoy plenamente versado en la ciencia agronómica, la salud de los cultivos, el análisis de suelos, la resolución de averías en maquinaria pesada diésel e hidráulica, y el relevamiento de instituciones agrotécnicas como la <strong>Escuela EMETA</strong>.
-          <br><br>
-          El sistema está 100% activo y a su entera disposición. Escríbame o hábleme directamente.
+          Agroemeta está en línea y listo. Contame qué necesitás resolver hoy: podemos revisar maquinaria agrícola, analizar parámetros de suelo, nutrición de cultivos o cualquier tema técnico y educativo en el que estés trabajando. Decime los datos que tengas y arrancamos.
         </div>
       </div>
     </main>
@@ -1096,11 +1092,21 @@
 
         // 3. EN INTERNET (Netlify) O FALLBACK LOCAL: Motor Cognitivo Inteligente Autónomo (100% Garantizado)
         if (window.agroEngine) {
-          const localAnswer = await window.agroEngine.ask(userMessage);
-          if (localAnswer) {
-            this.history.push({ role: 'user', text: userMessage });
-            this.history.push({ role: 'model', text: localAnswer });
-            return localAnswer;
+          try {
+            const localAnswer = await window.agroEngine.ask(userMessage);
+            if (localAnswer) {
+              this.history.push({ role: 'user', text: userMessage });
+              this.history.push({ role: 'model', text: localAnswer });
+              return localAnswer;
+            }
+          } catch (eEngine) {
+            console.warn("[AGROEMETA] Error en llamada con llave, aplicando base local:", eEngine);
+            const fallbackLocal = window.agroEngine.searchKnowledgeBase(userMessage) || window.agroEngine.generateReasonedGeneralResponse(userMessage);
+            if (fallbackLocal) {
+              this.history.push({ role: 'user', text: userMessage });
+              this.history.push({ role: 'model', text: fallbackLocal });
+              return fallbackLocal;
+            }
           }
         }
 
