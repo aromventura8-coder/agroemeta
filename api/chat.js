@@ -4,10 +4,16 @@
  * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
  */
 
-// Memoria volátil para Rate Limiting (en producción serverless se complementa con Redis o Upstash)
-const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minuto
-const MAX_REQUESTS_PER_WINDOW = 20;     // Máximo 20 peticiones por minuto por IP
+// SIN LÍMITES: no se bloquea por cantidad de peticiones. Si Gemini falla,
+// se agota la cuota o no hay llave, el frontend cae a la base local y el
+// asistente sigue respondiendo igual.
+
+const CANDIDATE_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-2.5-flash'
+];
 
 // Sanitización de entradas para mitigar inyecciones maliciosas
 function sanitizeInput(str) {
@@ -57,26 +63,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // 2. Control de Acceso y Rate Limiting por IP
-    const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'ip-desconocida';
-    const now = Date.now();
-    const clientHistory = rateLimitMap.get(clientIp) || { count: 0, firstReq: now };
-
-    if (now - clientHistory.firstReq > RATE_LIMIT_WINDOW_MS) {
-      clientHistory.count = 1;
-      clientHistory.firstReq = now;
-    } else {
-      clientHistory.count++;
-    }
-    rateLimitMap.set(clientIp, clientHistory);
-
-    if (clientHistory.count > MAX_REQUESTS_PER_WINDOW) {
-      return res.status(429).json({
-        error: 'Límite de peticiones excedido (Anti-Abuso). Por favor aguarde un momento antes de enviar otro mensaje.'
-      });
-    }
-
-    // 3. Procesamiento y Sanitización del Body
+    // 2. Procesamiento y Sanitización del Body
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const rawQuery = body.query || body.message || '';
     const query = sanitizeInput(rawQuery);
@@ -98,37 +85,35 @@ module.exports = async (req, res) => {
     }
 
     // 5. Conexión Segura con Gemini API desde el Servidor (Zero Exposición de Llaves)
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
-      // Si la variable de entorno aún no se cargó en el hosting, responder con el motor experto integrado
-      return res.status(200).json({
-        response: `✦ Conclusión: Dictamen técnico de Agroemeta AGI procesado con éxito para: "${query}".\n\n` +
-          `✦ Desarrollo Técnico:\n` +
-          `El sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n` +
-          `✦ Comprobación:\n` +
-          `Servidor seguro /api/chat respondiendo con cabeceras de protección, rate-limiting y sanitización XSS activa.\n\n` +
-          `• Ver ubicación en Google Maps: https://google.com\n` +
-          `• Indicaciones de cómo llegar: https://google.com`,
-        mode: mode
+      // 503 => el frontend hace fallback a la base de conocimiento local (sigue funcionando)
+      return res.status(503).json({
+        error: 'Servicio de IA no configurado en el servidor (falta GEMINI_API_KEY).'
       });
     }
 
-    // Llamada oficial al modelo Gemini 2.5/Flash mediante REST seguro
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
-
     const formattedContents = [];
     history.forEach((h) => {
+      if (!h || typeof h.text !== 'string' || !h.text.trim()) return;
       formattedContents.push({
         role: h.role === 'user' ? 'user' : 'model',
         parts: [{ text: h.text }]
       });
     });
 
-    formattedContents.push({
-      role: 'user',
-      parts: [{ text: `${query}${modeInstruction}` }]
-    });
+    const currentParts = [];
+    const doc = body.document;
+    if (doc && doc.isText && doc.content) {
+      currentParts.push({
+        text: `[DOCUMENTO ADJUNTO POR EL USUARIO: ${doc.name || 'documento'}]\n${String(doc.content).slice(0, 20000)}\n[FIN DEL DOCUMENTO]\n`
+      });
+    } else if (doc && doc.base64 && doc.mimeType) {
+      currentParts.push({ inlineData: { mimeType: doc.mimeType, data: doc.base64 } });
+    }
+    currentParts.push({ text: `${query}${modeInstruction}` });
+    formattedContents.push({ role: 'user', parts: currentParts });
 
     const geminiPayload = {
       systemInstruction: {
@@ -137,32 +122,44 @@ module.exports = async (req, res) => {
       contents: formattedContents,
       generationConfig: {
         temperature: 0.65,
-        maxOutputTokens: 3000
+        maxOutputTokens: 2048
       }
     };
 
-    const aiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiPayload)
-    });
+    // Se prueban los modelos en orden hasta obtener respuesta (los "lite" son los más rápidos).
+    let lastError = 'sin detalle';
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const aiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiPayload),
+          signal: AbortSignal.timeout(8000)
+        });
 
-    if (!aiRes.ok) {
-      const errTxt = await aiRes.text();
-      console.error('[API CHAT ERROR]', errTxt);
-      return res.status(200).json({
-        response: `A sus órdenes, caballero. He procesado su requerimiento sobre "${query}". Mis subsistemas agronómicos y pedagógicos de la Escuela E.M.E.T.A. N° 3130 están listos para continuar.`,
-        mode: mode
-      });
+        if (!aiRes.ok) {
+          lastError = `${model}: HTTP ${aiRes.status} ${await aiRes.text()}`.slice(0, 500);
+          continue;
+        }
+
+        const aiData = await aiRes.json();
+        const parts = (aiData && aiData.candidates && aiData.candidates[0] && aiData.candidates[0].content && aiData.candidates[0].content.parts) || [];
+        const valid = parts.filter((p) => !p.thought && typeof p.text === 'string' && p.text.trim());
+        const replyText = (valid.length ? valid : parts).map((p) => p.text || '').join('\n').trim();
+
+        if (replyText) {
+          return res.status(200).json({ response: replyText, mode: mode, model: model });
+        }
+        lastError = `${model}: respuesta vacía`;
+      } catch (err) {
+        lastError = `${model}: ${err && err.message ? err.message : String(err)}`;
+      }
     }
 
-    const aiData = await aiRes.json();
-    const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "Respuesta procesada.";
-
-    return res.status(200).json({
-      response: replyText,
-      mode: mode
-    });
+    console.error('[API CHAT ERROR]', lastError);
+    // 502 => el frontend hace fallback a la base de conocimiento local (sigue funcionando)
+    return res.status(502).json({ error: 'No se pudo obtener respuesta del modelo en este momento.' });
 
   } catch (error) {
     console.error('[SERVERLESS FATAL ERROR]', error);
