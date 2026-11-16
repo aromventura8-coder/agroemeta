@@ -1,0 +1,24 @@
+# ============================================================
+# AGROEMETA - archivos que NUNCA deben subirse al repositorio
+# ============================================================
+
+# Secretos y variables de entorno (la llave de Gemini vive SOLO en Netlify)
+.env
+.env.*
+*.local
+secrets.json
+
+# Netlify local
+.netlify/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+
+# Sistema
+Thumbs.db
+desktop.ini

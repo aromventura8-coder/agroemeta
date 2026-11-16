@@ -3,7 +3,7 @@
  * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
  */
 
-const CACHE_NAME = 'agroemeta-core-v2.0';
+const CACHE_NAME = 'agroemeta-core-v2.1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

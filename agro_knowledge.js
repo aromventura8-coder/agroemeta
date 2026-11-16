@@ -547,7 +547,7 @@ He procesado tu consulta sobre: **"${q}"**.
 1. **Fundamentos y Aplicación:**
    Desde los entornos formativos y técnicos de la Escuela E.M.E.T.A. N° 3130, este tema se aborda articulando la teoría científica con el trabajo práctico en el campo y taller.
 2. **Recomendaciones Clave:**
-   Para un análisis exhaustivo y en tiempo real con modelos generativos avanzados de Google Gemini, podés ingresar tu clave gratuita en el botón superior **🔑 LLAVE GEMINI** en cualquier momento. De este modo se desbloquea el procesamiento multimodal completo.
+   Para un análisis más profundo y en tiempo real, el sistema utiliza automáticamente el motor de IA del servidor cuando está disponible.
 
 ¿Querés que profundicemos en algún aspecto específico, cálculo o diagnóstico particular de esta consulta?`;
   }

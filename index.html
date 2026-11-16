@@ -726,11 +726,7 @@
           <span class="btn-text">ANTIGRAVITY AGI</span>
         </div>
 
-        <!-- Botón Llave Gemini -->
-        <button id="keyConfigBtn" class="pill-btn" title="Configurar Llave gratuita de Google Gemini" onclick="openKeyModalPrompt()">
-          <span class="btn-icon">🔑</span>
-          <span class="btn-text" id="keyBtnLabel">LLAVE GEMINI</span>
-        </button>
+        <!-- La llave de Gemini se gestiona en el servidor: no se solicita al usuario -->
       </div>
     </header>
 
@@ -1148,28 +1144,9 @@
         agiStatusBtn.href = ANTIGRAVITY_BACKEND_URL;
       }
 
-      // Configuración de Llave Gemini en navegador
-      window.openKeyModalPrompt = function() {
-        const currentKey = localStorage.getItem("agroemeta_gemini_key") || "";
-        const newKey = prompt("Ingrese su Llave de API gratuita de Google Gemini (AI Studio):", currentKey);
-        if (newKey !== null) {
-          const trimmed = newKey.trim();
-          localStorage.setItem("agroemeta_gemini_key", trimmed);
-          if (window.agroEngine) window.agroEngine.setApiKey(trimmed);
-          const lbl = document.getElementById("keyBtnLabel");
-          if (lbl) lbl.textContent = trimmed ? "LLAVE ACTIVA" : "LLAVE GEMINI";
-          if (trimmed) {
-            appendMessage("AGROEMETA", "Su llave de Google Gemini ha sido guardada en su navegador localmente. El procesamiento de respuestas ahora opera con máxima potencia.", "agroemeta");
-          }
-        }
-      };
-
-      const savedKeyInit = localStorage.getItem("agroemeta_gemini_key") || "";
-      if (savedKeyInit) {
-        if (window.agroEngine) window.agroEngine.setApiKey(savedKeyInit);
-        const lbl = document.getElementById("keyBtnLabel");
-        if (lbl) lbl.textContent = "LLAVE ACTIVA";
-      }
+      // La llave de Gemini ya NO se solicita al usuario: se gestiona 100% en el
+      // servidor (Netlify Function /api/chat + variable de entorno GEMINI_API_KEY).
+      // Ninguna clave queda en el navegador ni en el código público.
 
       // Sonido de bienvenida en el primer clic de interacción
       document.addEventListener("click", () => {

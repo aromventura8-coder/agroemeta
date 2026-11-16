@@ -1,0 +1,21 @@
+# ============================================================================
+# AGROEMETA AGI - Configuración de Netlify
+# El sitio se publica desde la raíz y expone la función /api/chat.
+# La llave de Gemini se define como variable de entorno en Netlify:
+#   Site configuration -> Environment variables -> GEMINI_API_KEY
+# ============================================================================
+
+[build]
+  publish = "."
+  command = "echo no-build-step"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Mapea /api/chat (lo que llama el frontend) a la función server-side.
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+  force = true
