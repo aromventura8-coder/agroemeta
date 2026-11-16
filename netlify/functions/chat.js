@@ -7,10 +7,9 @@
  * ni se envía al navegador del usuario.
  */
 
-// Memoria volátil para Rate Limiting (best-effort por instancia)
-const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minuto
-const MAX_REQUESTS_PER_WINDOW = 20;     // máximo 20 peticiones por minuto por IP
+// SIN LÍMITES: no se bloquea por cantidad de peticiones. Si Gemini falla,
+// se agota la cuota o no hay llave, el frontend cae a la base local y el
+// asistente sigue respondiendo igual.
 
 // Modelos candidatos, en orden de preferencia. Se usa el primero que responda.
 const CANDIDATE_MODELS = [
@@ -80,27 +79,11 @@ exports.handler = async (event) => {
   // 1. La llave se toma SIEMPRE del entorno del servidor (invisible al cliente)
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    // 503 => el frontend hace fallback a la base de conocimiento local
+    // 503 => el frontend hace fallback a la base de conocimiento local (sigue funcionando)
     return json(503, { error: 'Servicio de IA no configurado en el servidor (falta GEMINI_API_KEY).' });
   }
 
-  // 2. Rate limiting por IP (best-effort)
-  const forwarded = event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for'] || 'ip-desconocida';
-  const clientIp = String(forwarded).split(',')[0].trim();
-  const now = Date.now();
-  const hist = rateLimitMap.get(clientIp) || { count: 0, firstReq: now };
-  if (now - hist.firstReq > RATE_LIMIT_WINDOW_MS) {
-    hist.count = 1;
-    hist.firstReq = now;
-  } else {
-    hist.count++;
-  }
-  rateLimitMap.set(clientIp, hist);
-  if (hist.count > MAX_REQUESTS_PER_WINDOW) {
-    return json(429, { error: 'Límite de peticiones excedido (Anti-Abuso). Aguarde un momento antes de enviar otro mensaje.' });
-  }
-
-  // 3. Parseo y sanitización del cuerpo
+  // 2. Parseo y sanitización del cuerpo
   let body = {};
   try {
     body = JSON.parse(event.body || '{}');
