@@ -313,7 +313,8 @@ def start_server(open_browser=True):
     print(f"  [+] AGROEMETA // MAYORDOMO AGI")
     print(f"  [+] En este equipo:  {local_url}")
     print(f"  [+] En su móvil (WiFi): {network_url}")
-    print(f"  [+] Llave Gemini en servidor: {{'SI' if get_gemini_key() else 'NO (modo base local)'}}}")
+    key_status = 'SI' if get_gemini_key() else 'NO (modo base local)'
+    print(f"  [+] Llave Gemini en servidor: {key_status}")
     print(f"  [+] Presione Ctrl + C para finalizar.")
     print(f"============================================================")
 
