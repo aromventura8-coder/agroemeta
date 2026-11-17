@@ -14,6 +14,15 @@
   "functions": {
     "api/chat.js": {
       "maxDuration": 30
+    },
+    "api/generate-image.js": {
+      "maxDuration": 30
+    },
+    "api/create-document.js": {
+      "maxDuration": 30
+    },
+    "api/improve-text.js": {
+      "maxDuration": 30
     }
   }
 }

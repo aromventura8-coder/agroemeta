@@ -1,6 +1,6 @@
 /**
  * Agroemeta AGI - Service Worker Ultraligero (PWA + Ahorro de Datos)
- * Escuela E.M.E.T.A. NÂ° 3130 - Tartagal, Salta
+ * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
  */
 
 const CACHE_NAME = 'agroemeta-core-v2.1';
@@ -38,7 +38,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network First con fallback a Cache para activos estÃ¡ticos (mÃ¡xima velocidad y soporte offline)
+  // Network First con fallback a Cache para activos estáticos (máxima velocidad y soporte offline)
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
