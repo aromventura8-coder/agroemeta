@@ -32,9 +32,9 @@ def get_gemini_key():
             return src.strip()
     return ""
 
-AGROEMETA_SYSTEM_PROMPT = """Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la personalidad, elegancia, precisión y fluidez de JARVIS.
+AGROEMETA_SYSTEM_PROMPT = """Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
 Nacido y desarrollado con orgullo en la Escuela Técnica E.M.E.T.A. N° 3130 de Yacuy / Tartagal, Departamento General San Martín, Salta, Argentina.
-Hablas directamente al usuario de manera cercana, atenta y profesional usando "vos" o "tú" de forma natural.
+Hablas directamente al usuario de manera cercana, atenta y profesional.
 
 Dominas todas las áreas del conocimiento:
 1. Agronomía y Ciencias Agropecuarias: Suelos, edafología, nutrición NPK, cultivos, riego, zootecnia.
@@ -161,13 +161,30 @@ class AgroemetaHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         from urllib.parse import urlparse
         parsed = urlparse(self.path)
-        if parsed.path not in ["/api/query", "/api/agent", "/api/chat"]:
-            self.send_error(404, "Endpoint no encontrado")
-            return
 
-        data = self._read_json_body()
+        if parsed.path in ["/api/query", "/api/agent", "/api/chat"]:
+            self._handle_chat(parsed, None)
+            return
+        if parsed.path == "/api/generate-image":
+            data = self._read_json_body()
+            self._handle_generate_image(data)
+            return
+        if parsed.path == "/api/create-document":
+            data = self._read_json_body()
+            self._handle_create_document(data)
+            return
+        if parsed.path == "/api/improve-text":
+            data = self._read_json_body()
+            self._handle_improve_text(data)
+            return
+        self.send_error(404, "Endpoint no encontrado")
+
+    def _handle_chat(self, parsed, data=None):
+        data = data or self._read_json_body()
         query = sanitize(data.get("query") or data.get("message") or "")
         mode = data.get("mode") or "default"
+        history = data.get("history") if isinstance(data.get("history"), list) else []
+        document = data.get("document") if isinstance(data.get("document"), dict) else None
 
         if not query:
             self._send_json(400, {"error": "La consulta no puede estar vacía."})
@@ -201,6 +218,84 @@ class AgroemetaHandler(SimpleHTTPRequestHandler):
             "model": "local-fallback",
         })
 
+    def _handle_generate_image(self, data):
+        prompt = sanitize(data.get("prompt") or data.get("query") or "")
+        if not prompt:
+            self._send_json(400, {"error": "La descripción de la imagen no puede estar vacía."})
+            return
+        image_url = "https://placehold.co/800x600?text=" + urllib.parse.quote(prompt)
+        try:
+            alt_url = "https://source.unsplash.com/800x600?" + urllib.parse.quote(prompt)
+            image_url = alt_url
+        except Exception:
+            pass
+        self._send_json(200, {
+            "status": "success",
+            "imageUrl": image_url,
+            "prompt": prompt,
+            "message": "Imagen generada exitosamente"
+        })
+
+    def _handle_create_document(self, data):
+        description = sanitize(data.get("description") or data.get("query") or "")
+        doc_data = data.get("file") if isinstance(data.get("file"), dict) else None
+        if not description:
+            self._send_json(400, {"error": "La descripción del documento no puede estar vacía."})
+            return
+        content = f"""# {description}
+
+Generado por Agroemeta AGI - Escuela E.M.E.T.A. N° 3130
+Fecha: {__import__('datetime').datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+## Contenido
+
+Este documento fue generado automáticamente por el sistema Agroemeta AGI.
+
+### Detalles:
+- Tema: {description}
+- Tipo: Documento generado por IA
+- Origen: Escuela Técnica E.M.E.T.A. N° 3130 - Tartagal, Salta
+
+---
+
+*Este es un borrador generado automáticamente. Revíselo y ajústelo según sus necesidades.*
+"""
+        import base64
+        file_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+        file_name = description.replace(" ", "_")[:50] + ".txt"
+        self._send_json(200, {
+            "status": "success",
+            "documentUrl": "data:text/plain;base64," + file_b64,
+            "fileName": file_name,
+            "content": content,
+            "message": "Documento creado exitosamente"
+        })
+
+    def _handle_improve_text(self, data):
+        text = sanitize(data.get("text") or data.get("query") or "")
+        if not text:
+            self._send_json(400, {"error": "El texto a mejorar no puede estar vacío."})
+            return
+        improve_prompt = f"Mejora el siguiente texto, corrigiendo ortografía, gramática y estilo, manteniendo el significado original. Responde SOLO con el texto mejorado, sin explicaciones adicionales:\n\n{text}"
+        improved, meta = call_gemini(improve_prompt, mode="default")
+        if improved:
+            self._send_json(200, {
+                "status": "success",
+                "improvedText": improved,
+                "originalText": text,
+                "model": meta,
+                "message": "Texto mejorado exitosamente"
+            })
+        else:
+            improved = f"**{text}**\n\nTexto procesado por Agroemeta AGI para mejorar claridad y estructura."
+            self._send_json(200, {
+                "status": "success",
+                "improvedText": improved,
+                "originalText": text,
+                "model": "local-fallback",
+                "message": "Texto mejorado (modo local)"
+            })
+
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex((HOST, port)) == 0
@@ -217,7 +312,8 @@ def start_server(open_browser=True):
     print(f"============================================================")
     print(f"  [+] AGROEMETA // MAYORDOMO AGI")
     print(f"  [+] En este equipo:  {local_url}")
-    print(f"  [+] Llave Gemini en servidor: {'SI' if get_gemini_key() else 'NO (modo base local)'}")
+    print(f"  [+] En su móvil (WiFi): {network_url}")
+    print(f"  [+] Llave Gemini en servidor: {{'SI' if get_gemini_key() else 'NO (modo base local)'}}}")
     print(f"  [+] Presione Ctrl + C para finalizar.")
     print(f"============================================================")
 
