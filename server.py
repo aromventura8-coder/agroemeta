@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 AGROEMETA - Servidor Neuronal Local
 Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
@@ -11,6 +12,12 @@ import urllib.parse
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+# Forzar UTF-8 en stdout para Windows
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 PORT = 8085
 HOST = "0.0.0.0"
@@ -34,7 +41,7 @@ def get_gemini_key():
 
 AGROEMETA_SYSTEM_PROMPT = """Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
 Nacido y desarrollado con orgullo en la Escuela Técnica E.M.E.T.A. N° 3130 de Yacuy / Tartagal, Departamento General San Martín, Salta, Argentina.
-Hablas directamente al usuario de manera cercana, atenta y profesional.
+Hablas directamente al usuario de manera cercana, atenta y profesional usando "vos" o "tú" de forma natural.
 
 Dominas todas las áreas del conocimiento:
 1. Agronomía y Ciencias Agropecuarias: Suelos, edafología, nutrición NPK, cultivos, riego, zootecnia.
@@ -68,7 +75,7 @@ def call_gemini(query, mode="default"):
         "generationConfig": {"temperature": 0.65, "maxOutputTokens": 2048}
     }
 
-    body = json.dumps(payload).encode("utf-8")
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     last_error = "sin detalle"
 
     models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash"]
@@ -116,7 +123,7 @@ class AgroemetaHandler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
-    def log_message(self, fmt, *args):
+    def log_message(self, format, *args):
         pass
 
     def do_GET(self):
@@ -242,10 +249,11 @@ class AgroemetaHandler(SimpleHTTPRequestHandler):
         if not description:
             self._send_json(400, {"error": "La descripción del documento no puede estar vacía."})
             return
+        import datetime
         content = f"""# {description}
 
 Generado por Agroemeta AGI - Escuela E.M.E.T.A. N° 3130
-Fecha: {__import__('datetime').datetime.now().strftime('%d/%m/%Y %H:%M')}
+Fecha: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 ## Contenido
 
@@ -309,14 +317,13 @@ def start_server(open_browser=True):
     local_ip = get_local_ip()
     local_url = f"http://localhost:{current_port}"
     network_url = f"http://{local_ip}:{current_port}"
-    print(f"============================================================")
-    print(f"  [+] AGROEMETA // MAYORDOMO AGI")
+    print("============================================================")
+    print("  [+] AGROEMETA // MAYORDOMO AGI")
     print(f"  [+] En este equipo:  {local_url}")
     print(f"  [+] En su móvil (WiFi): {network_url}")
-    key_status = 'SI' if get_gemini_key() else 'NO (modo base local)'
-    print(f"  [+] Llave Gemini en servidor: {key_status}")
+    print(f"  [+] Llave Gemini en servidor: {'SI' if get_gemini_key() else 'NO (modo base local)'}")
     print(f"  [+] Presione Ctrl + C para finalizar.")
-    print(f"============================================================")
+    print("============================================================")
 
     if open_browser:
         import webbrowser
