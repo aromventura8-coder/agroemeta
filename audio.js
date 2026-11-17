@@ -14,15 +14,12 @@ class AgroAudioSystem {
     this.onListeningChange = null;
     this.onSpeakingChange = null;
     this.onSubtitleChange = null;
-    this.wakeWord = "agroemeta";
     this.currentUtterance = null;
     this.isPaused = false;
     this.isSpeaking = false;
     this.voiceRate = 1.0;
     this.voiceQueue = [];
     this.isProcessingQueue = false;
-    this.subtitleElement = null;
-    this.subtitleStatusElement = null;
 
     this.subtitlesPanel = document.getElementById('subtitlesPanel');
     this.subtitleTextEl = document.getElementById('subtitleText');
@@ -262,22 +259,27 @@ class AgroAudioSystem {
     if (this.synth.speaking) {
       this.synth.cancel();
     }
+
     let textToSpeak = text;
     if (text.includes("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")) {
       const segments = text.split("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       textToSpeak = segments[0] + (segments[2] ? " " + segments[2] : "");
     }
+
     const cleanText = textToSpeak
       .replace(/\[.*?\]/g, '')
       .replace(/[#*`_~━✦•]/g, '')
       .replace(/•/g, '')
       .replace(/\n+/g, '. ')
       .trim();
+
     if (!cleanText) return;
+
     const wasListening = this.isListening;
     if (wasListening && this.recognition) {
       try { this.recognition.stop(); } catch (_) {}
     }
+
     this.voiceQueue = [];
     this.isProcessingQueue = false;
     this.addToQueue(cleanText);
@@ -310,10 +312,12 @@ class AgroAudioSystem {
       this.isSpeaking = true;
       this.showSubtitles(text, 'Hablando');
       this.updateVoiceStatus('Hablando');
+
       utterance.onstart = () => {
         this.isSpeaking = true;
         if (this.onSpeakingChange) this.onSpeakingChange(true);
       };
+
       utterance.onend = () => {
         this.isSpeaking = false;
         this.hideSubtitles();
@@ -321,6 +325,7 @@ class AgroAudioSystem {
         if (this.onSpeakingChange) this.onSpeakingChange(false);
         resolve();
       };
+
       utterance.onerror = () => {
         this.isSpeaking = false;
         this.hideSubtitles();
@@ -328,6 +333,7 @@ class AgroAudioSystem {
         if (this.onSpeakingChange) this.onSpeakingChange(false);
         resolve();
       };
+
       this.synth.speak(utterance);
       this.currentUtterance = utterance;
     });
