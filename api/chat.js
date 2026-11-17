@@ -3,7 +3,7 @@
  * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
  */
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -21,8 +21,6 @@ module.exports = async (req, res) => {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const query = sanitizeInput(body.query || body.message || '');
     const mode = body.mode || 'default';
-    const history = Array.isArray(body.history) ? body.history : [];
-    const document = body.document || null;
 
     if (!query) {
       return res.status(400).json({ error: 'La consulta no puede estar vacía.' });
