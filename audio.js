@@ -14,12 +14,15 @@ class AgroAudioSystem {
     this.onListeningChange = null;
     this.onSpeakingChange = null;
     this.onSubtitleChange = null;
+    this.wakeWord = "agroemeta";
     this.currentUtterance = null;
     this.isPaused = false;
     this.isSpeaking = false;
     this.voiceRate = 1.0;
     this.voiceQueue = [];
     this.isProcessingQueue = false;
+    this.subtitleElement = null;
+    this.subtitleStatusElement = null;
 
     this.subtitlesPanel = document.getElementById('subtitlesPanel');
     this.subtitleTextEl = document.getElementById('subtitleText');
