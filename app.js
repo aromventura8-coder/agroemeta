@@ -1,6 +1,6 @@
 /**
  * AGROEMETA - Interfaz de Mayordomo Inteligente
- * Basado en el código original de Netlify (agroexpo3134)
+ * Con generación de imágenes, crear documentos, mejorar texto, controles de voz y subtítulos
  */
 
 (function() {
@@ -45,7 +45,6 @@
     let isVoiceMuted = false;
     let generatedImages = [];
     let currentDocTask = null;
-    let textToImprove = null;
 
     // ---------- Utilidades ----------
     function escapeQuotes(str) {
@@ -311,7 +310,7 @@
 
       const lower = query.toLowerCase();
 
-      // Detección de comando de imagen
+      // Detección de comando de generación de imagen
       if (lower.includes("genera una imagen") || lower.includes("generar imagen") || lower.includes("crea una imagen") || lower.includes("dibuja") || lower.includes("imagen de")) {
         const prompt = query
           .replace(/genera una imagen de/gi, '')
@@ -395,7 +394,7 @@
         const res = await fetch(`${ANTIGRAVITY_BACKEND_URL}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify({ query, mode: "default" })
+          body: JSON.stringify({ query: query, mode: "default" })
         });
         const data = await res.json();
         const reply = data.response || data.text || data.message || "A sus órdenes, caballero.";
@@ -436,6 +435,39 @@
       chatFeed.appendChild(row);
       chatFeed.scrollTop = chatFeed.scrollHeight;
     }
+
+    // ---------- Eventos ----------
+    voiceMuteBtn.addEventListener("click", () => {
+      isVoiceMuted = !isVoiceMuted;
+      voiceMuteBtn.querySelector(".btn-text").textContent = isVoiceMuted ? "SILENCIADA" : "VOZ";
+      if (isVoiceMuted) {
+        voiceMuteBtn.classList.remove("active");
+        window.agroAudio.stopSpeaking();
+      } else {
+        voiceMuteBtn.classList.add("active");
+        voiceMuteBtn.querySelector(".btn-text").textContent = "VOZ";
+        window.agroAudio.playBeep(700, 0.08);
+      }
+    });
+
+    sendBtn.addEventListener("click", submitText);
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        submitText();
+      }
+    });
+
+    function submitText() {
+      const text = userInput.value.trim();
+      if (!text) return;
+      userInput.value = "";
+      handleUserQuery(text);
+    }
+
+    micToggleBtn.addEventListener("click", () => {
+      window.agroAudio.toggleListening();
+    });
   };
 
   if (document.readyState === 'loading') {
