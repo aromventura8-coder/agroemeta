@@ -4,6 +4,7 @@
  */
 
 export default async function handler(req, res) {
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -18,24 +19,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    // Parse body
+    let body = {};
+    if (req.body) {
+      if (typeof req.body === 'string') {
+        body = JSON.parse(req.body);
+      } else if (typeof req.body === 'object') {
+        body = req.body;
+      }
+    }
+
     const query = sanitizeInput(body.query || body.message || '');
     const mode = body.mode || 'default';
 
-    if (!query) {
+    if (!query || query.length === 0) {
       return res.status(400).json({ error: 'La consulta no puede estar vacía.' });
     }
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
-      const fallback = (
-        "✦ Conclusión: He procesado su consulta.\n\n"
-        "✦ Desarrollo Técnico:\n"
-        "El sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n"
-        "• Ver ubicación en Google Maps: https://google.com\n"
-        "• Indicaciones de cómo llegar: https://google.com"
-      );
+      const fallback = "✦ Conclusión: He procesado su consulta.\n\n✦ Desarrollo Técnico:\nEl sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n• Ver ubicación en Google Maps: https://google.com\n• Indicaciones de cómo llegar: https://google.com";
       return res.status(200).json({
         status: 'success',
         received_query: query,
@@ -46,11 +50,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const payload = {
-      contents: [{ role: 'user', parts: [{ text: query }] }],
-      systemInstruction: {
-        parts: [{
-          text: `Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
+    const systemPrompt = `Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
 Nacido y desarrollado con orgullo en la Escuela Técnica E.M.E.T.A. N° 3130 de Yacuy / Tartagal, Departamento General San Martín, Salta, Argentina.
 Hablas directamente al usuario de manera cercana, atenta y profesional usando "vos" o "tú" de forma natural.
 
@@ -64,9 +64,11 @@ ESTRUCTURA DE RESPUESTA:
 - Comienza directo con una explicación clara y completa del tema.
 - Desarrolla el contenido paso a paso con datos exactos y ejemplos prácticos.
 - Incluye respaldo o presencia en el territorio y enlaces a Google Maps si corresponden.
-- Cierra amablemente con los siguientes pasos recomendados.`
-        }]
-      },
+- Cierra amablemente con los siguientes pasos recomendados.`;
+
+    const payload = {
+      contents: [{ role: 'user', parts: [{ text: query }] }],
+      systemInstruction: { parts: [{ text: systemPrompt }] },
       generationConfig: { temperature: 0.65, maxOutputTokens: 2048 }
     };
 
@@ -81,13 +83,7 @@ ESTRUCTURA DE RESPUESTA:
     if (!geminiRes.ok) {
       const errTxt = await geminiRes.text();
       console.error('[API CHAT ERROR]', errTxt);
-      const fallback = (
-        "✦ Conclusión: He procesado su consulta.\n\n"
-        "✦ Desarrollo Técnico:\n"
-        "El sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n"
-        "• Ver ubicación en Google Maps: https://google.com\n"
-        "• Indicaciones de cómo llegar: https://google.com"
-      );
+      const fallback = "✦ Conclusión: He procesado su consulta.\n\n✦ Desarrollo Técnico:\nEl sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n• Ver ubicación en Google Maps: https://google.com\n• Indicaciones de cómo llegar: https://google.com";
       return res.status(200).json({
         status: 'success',
         received_query: query,
@@ -105,13 +101,7 @@ ESTRUCTURA DE RESPUESTA:
     const reply = chosen.map(p => p.text || '').join('\n').trim();
 
     if (!reply) {
-      const fallback = (
-        "✦ Conclusión: He procesado su consulta.\n\n"
-        "✦ Desarrollo Técnico:\n"
-        "El sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n"
-        "• Ver ubicación en Google Maps: https://google.com\n"
-        "• Indicaciones de cómo llegar: https://google.com"
-      );
+      const fallback = "A sus órdenes, caballero. He procesado su consulta. Mis subsistemas están activos.";
       return res.status(200).json({
         status: 'success',
         received_query: query,
@@ -133,13 +123,7 @@ ESTRUCTURA DE RESPUESTA:
 
   } catch (error) {
     console.error('[API CHAT ERROR]', error);
-    const fallback = (
-      "✦ Conclusión: He procesado su consulta.\n\n"
-      "✦ Desarrollo Técnico:\n"
-      "El sistema se encuentra 100% activo y operativo. En la Escuela Técnica E.M.E.T.A. N° 3130 hemos implementado esta arquitectura de alta disponibilidad para asistir en todas las materias escolares, ciencias agronómicas, mecánica diésel e inserción laboral.\n\n"
-      "• Ver ubicación en Google Maps: https://google.com\n"
-      "• Indicaciones de cómo llegar: https://google.com"
-    );
+    const fallback = "A sus órdenes, caballero. Ha ocurrido una dificultad temporal, pero el sistema permanece activo.";
     return res.status(200).json({
       status: 'success',
       received_query: '',
