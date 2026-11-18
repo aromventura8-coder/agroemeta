@@ -1,5 +1,5 @@
 /**
- * AGROEMETA - Endpoint Generar Imagen
+ * AGROEMETA - Endpoint /api/generate-image
  * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
  */
 

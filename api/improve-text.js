@@ -1,5 +1,5 @@
 /**
- * AGROEMETA - Endpoint Mejorar Texto
+ * AGROEMETA - Endpoint /api/improve-text
  * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
  */
 
@@ -45,7 +45,8 @@ module.exports = async (req, res) => {
           const geminiData = await geminiRes.json();
           const parts = geminiData.candidates?.[0]?.content?.parts || [];
           const valid = parts.filter(p => !p.thought && typeof p.text === 'string' && p.text.trim());
-          const improved = (valid.length ? valid : parts).map(p => p.text || '').join('\n').trim();
+          const chosen = valid.length ? valid : parts;
+          const improved = chosen.map(p => p.text || '').join('\n').trim();
 
           if (improved) {
             return res.status(200).json({
