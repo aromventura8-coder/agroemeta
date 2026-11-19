@@ -443,6 +443,7 @@
       voiceMuteBtn.querySelector(".btn-text").textContent = isVoiceMuted ? "SILENCIADA" : "VOZ";
       if (isVoiceMuted) {
         voiceMuteBtn.classList.remove("active");
+        voiceMuteBtn.querySelector(".btn-text").textContent = "SILENCIADA";
         window.agroAudio.stopSpeaking();
       } else {
         voiceMuteBtn.classList.add("active");
