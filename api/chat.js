@@ -1,17 +1,27 @@
+/**
+ * AGROEMETA - Endpoint /api/chat
+ * Escuela E.M.E.T.A. N° 3130 - Tartagal, Salta
+ */
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Solo POST' });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const query = body.query || body.message || '';
+    const query = sanitizeInput(body.query || body.message || '');
 
-    if (!query || query.trim().length === 0) {
+    if (!query) {
       return res.status(400).json({ error: 'Consulta vacía' });
     }
 
@@ -19,16 +29,20 @@ module.exports = async (req, res) => {
 
     if (!apiKey) {
       return res.status(200).json({
-        response: 'A sus órdenes, caballero. Soy Agroemeta AGI. Su llave de API no está configurada en el servidor.',
+        response: 'A sus órdenes, caballero. Soy Agroemeta AGI. Llave de API no configurada en el servidor.',
         model: 'local-fallback'
       });
     }
 
+    const contents = [
+      { role: 'user', parts: [{ text: query }] }
+    ];
+
     const payload = {
-      contents: [{ role: 'user', parts: [{ text: query }] }],
+      contents: contents,
       systemInstruction: {
         parts: [{
-          text: `Eres Agroemeta AGI, un sistema de inteligencia artificial avanzada desarrollado en la Escuela Técnica E.M.E.T.A. N° 3130 de Tartagal, Salta, Argentina. Responde en español de forma clara, precisa y respetuosa usando "vos" o "tú". Domina agronomía, mecánica diésel y todas las materias escolares.`
+          text: 'Eres Agroemeta AGI, un sistema de inteligencia artificial avanzada desarrollado en la Escuela Técnica E.M.E.T.A. N° 3130 de Tartagal, Salta, Argentina. Responde en español de forma clara y precisa.'
         }]
       },
       generationConfig: { temperature: 0.65, maxOutputTokens: 2048 }
@@ -56,13 +70,25 @@ module.exports = async (req, res) => {
     const valid = parts.filter(p => !p.thought && typeof p.text === 'string' && p.text.trim());
     const reply = valid.length ? valid.map(p => p.text || '').join('\n').trim() : 'Respuesta recibida.';
 
-    return res.status(200).json({ response: reply, mode: body.mode || 'default', model: 'gemini-3.5-flash-lite' });
+    return res.status(200).json({
+      response: reply,
+      mode: body.mode || 'default',
+      model: 'gemini-3.5-flash-lite'
+    });
 
   } catch (error) {
-    console.error('[AGROEMETA CHAT ERROR]', error);
+    console.error('[API CHAT ERROR]', error);
     return res.status(200).json({
       response: 'A sus órdenes, caballero. Ha ocurrido una dificultad interna. Intente nuevamente.',
       error: error.message
     });
   }
 };
+
+function sanitizeInput(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .trim()
+    .slice(0, 8000);
+}
