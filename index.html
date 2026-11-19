@@ -15,7 +15,7 @@
         <span class="brand-crest">✦</span>
         <div class="brand-info">
           <h1 class="brand-name">AGROEMETA</h1>
-          <span class="brand-desc">Mayordomo AGI // Agronomía & Mecánica</span>
+          <span class="brand-desc">Mayordomo AGI // Agronomía &amp; Mecánica</span>
         </div>
       </div>
       <div class="header-actions">
@@ -25,7 +25,7 @@
         </button>
         <div id="agiStatusBtn" class="pill-btn active" title="Núcleo AGI en línea">
           <span class="btn-dot"></span>
-          <span class="btn-text">ANTIGRAVITY AGI</span>
+          <span class="btn-text">AGI EN LÍNEA</span>
         </div>
       </div>
     </header>
@@ -47,9 +47,10 @@
         <span class="thinking-dot"></span>
         <span class="thinking-dot"></span>
       </div>
-      <div class="bubble-row bubble-agroemeta">
+      <!-- Bienvenida inicial -->
+      <div class="bubble-row bubble-agroemeta" id="welcomeBubble">
         <div class="avatar-tag">AGROEMETA</div>
-        <div class="bubble-content">
+        <div class="bubble-content" id="welcomeText">
           Agroemeta en línea. Contame qué necesitás resolver hoy: agronomía, maquinaria, suelos, cultivos o cualquier consulta técnica y educativa. Decime los datos y arrancamos.
         </div>
       </div>
@@ -57,11 +58,21 @@
 
     <footer class="app-composer">
       <div class="composer-bar">
-        <button id="micToggleBtn" class="composer-btn mic-btn" title="Hablar por micrófono">
-          <span>🎙️</span>
+        <!-- MICRÓFONO -->
+        <button id="micToggleBtn" class="composer-btn mic-btn" title="Activar micrófono (hablar)">
+          <span id="micIcon">🎙️</span>
+        </button>
+        <button id="genImgBtn" class="composer-btn btn-gen-img" title="Generar imagen con IA">
+          <span>🎨</span>
+        </button>
+        <button id="createDocBtn" class="composer-btn btn-create-doc" title="Crear documento">
+          <span>📄</span>
+        </button>
+        <button id="improveTextBtn" class="composer-btn btn-improve-text" title="Mejorar texto">
+          <span>✨</span>
         </button>
         <div class="composer-input-box">
-          <input type="text" id="userInput" placeholder="Escriba su consulta o hable con el micrófono (Enter para enviar)..." autocomplete="off" autofocus>
+          <input type="text" id="userInput" placeholder="Escribí tu consulta o usá el micrófono 🎙️ (Enter para enviar)..." autocomplete="off" autofocus>
         </div>
         <button id="sendBtn" class="composer-btn send-btn" title="Enviar (o presione Enter)">
           <span>▲</span>
@@ -84,6 +95,7 @@
           <option value="1.15">1.15x</option>
           <option value="1.3">Rápido 1.3x</option>
         </select>
+        <span id="voiceStatus" style="font-size:11px;color:#64748b;margin-left:4px;">Listo</span>
       </div>
     </footer>
 
@@ -93,8 +105,47 @@
       <div class="subtitle-status" id="subtitleStatus">Listo</div>
     </div>
 
-    <script src="agro_knowledge.js"></script>
-    <script src="app.js"></script>
+    <!-- Panel generar imagen -->
+    <div id="imgGenPanel" class="img-gen-panel" style="display:none;">
+      <div class="doc-task-header">
+        <span class="doc-task-title">🎨 Generar Imagen con IA</span>
+        <button onclick="document.getElementById('imgGenPanel').style.display='none'" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:18px;">✕</button>
+      </div>
+      <input type="text" id="imgPromptInput" class="img-gen-input" placeholder="Describí la imagen (ej: tractor en campo de maíz al atardecer)">
+      <button id="btnGenerateImg" style="background:var(--blue-glow-core);border:none;color:#000;padding:10px 20px;border-radius:6px;font-size:14px;cursor:pointer;width:100%;font-weight:600;">Generar Imagen</button>
+    </div>
+
+    <!-- Panel crear documento -->
+    <div id="docTaskPanel" class="doc-task-area" style="display:none;">
+      <div class="doc-task-header">
+        <span class="doc-task-title">📄 Crear Documento</span>
+        <button onclick="document.getElementById('docTaskPanel').style.display='none'" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:18px;">✕</button>
+      </div>
+      <input type="text" id="docTaskInput" class="img-gen-input" placeholder="Describí el documento (ej: informe de fertilización de soja)">
+      <input type="file" id="docTaskFileInput" accept="image/*,.pdf" style="display:none;">
+      <button id="btnSelectDocFile" style="background:rgba(0,210,255,0.2);border:1px solid var(--blue-glow-core);color:var(--blue-glow-core);padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;margin-bottom:10px;">📎 Seleccionar Foto o PDF</button>
+      <button id="btnCreateDocTask" style="background:var(--blue-glow-core);border:none;color:#000;padding:10px 20px;border-radius:6px;font-size:14px;cursor:pointer;width:100%;font-weight:600;">Crear Documento</button>
+    </div>
+
+    <!-- Panel mejorar texto -->
+    <div id="improveTextPanel" class="improve-text-panel" style="display:none;">
+      <div class="doc-task-header">
+        <span class="doc-task-title">✨ Mejorar Texto</span>
+        <button onclick="document.getElementById('improveTextPanel').style.display='none'" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:18px;">✕</button>
+      </div>
+      <textarea id="improveTextInput" class="improve-text-input" placeholder="Pegá el texto que querés mejorar..."></textarea>
+      <button id="btnImproveText" style="background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#fff;padding:10px 20px;border-radius:6px;font-size:14px;cursor:pointer;width:100%;font-weight:600;">Mejorar Texto</button>
+    </div>
+
+    <!-- Galería de imágenes -->
+    <div id="imageGallery" class="image-gallery" style="display:none;"></div>
+
+    <!-- Notificación toast -->
+    <div id="toastNotification" class="toast-notification"></div>
   </div>
+
+  <script src="agro_knowledge.js"></script>
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -517,6 +517,42 @@
       handleUserQuery(text);
     }
 
+    // ---------- Reacciones de voz y micrófono sobre el Núcleo AGI (Living Orb) ----------
+    const livingOrb = document.getElementById("livingOrb");
+    if (livingOrb) {
+      livingOrb.style.cursor = "pointer";
+      livingOrb.title = "Tocá para hablar con el micrófono";
+      livingOrb.addEventListener("click", () => {
+        if (window.agroAudio) window.agroAudio.toggleListening();
+      });
+    }
+
+    if (window.agroAudio) {
+      window.agroAudio.onListeningChange = (isListening) => {
+        if (livingCore) {
+          if (isListening) {
+            livingCore.classList.add("listening");
+            if (orbStateText) orbStateText.textContent = "🎙️ Escuchando... Hablá ahora";
+          } else {
+            livingCore.classList.remove("listening");
+            if (orbStateText) orbStateText.textContent = "En línea y listo para ayudarte";
+          }
+        }
+      };
+
+      window.agroAudio.onSpeakingChange = (isSpeaking) => {
+        if (livingCore) {
+          if (isSpeaking) {
+            livingCore.classList.add("speaking");
+            if (orbStateText) orbStateText.textContent = "🔊 Agroemeta hablando...";
+          } else {
+            livingCore.classList.remove("speaking");
+            if (orbStateText) orbStateText.textContent = "En línea y listo para ayudarte";
+          }
+        }
+      };
+    }
+
     if (micToggleBtn) micToggleBtn.addEventListener("click", () => {
       if (window.agroAudio) window.agroAudio.toggleListening();
     });

@@ -279,17 +279,53 @@ class AgroAudioSystem {
   }
 
   _setMicBtn(active) {
-    const btn = document.getElementById('micToggleBtn');
+    const btn  = document.getElementById('micToggleBtn');
+    const icon = document.getElementById('micIcon');
     if (!btn) return;
     if (active) {
-      btn.classList.add('mic-active');
-      btn.querySelector('span') && (btn.querySelector('span').textContent = '🔴');
-      btn.title = "Micrófono activo - Hablá ahora";
+      btn.classList.add('mic-active', 'active');
+      if (icon) icon.textContent = '🔴';
+      btn.title = "Micrófono activo — hablá ahora";
     } else {
-      btn.classList.remove('mic-active');
-      btn.querySelector('span') && (btn.querySelector('span').textContent = '🎙️');
-      btn.title = "Activar micrófono";
+      btn.classList.remove('mic-active', 'active');
+      if (icon) icon.textContent = '🎙️';
+      btn.title = "Activar micrófono (hablar)";
     }
+  }
+
+  // Hablar la bienvenida al cargar la página
+  speakWelcome() {
+    const msg = "Agroemeta en línea. Contame qué necesitás resolver hoy: agronomía, maquinaria, suelos, cultivos o cualquier consulta técnica y educativa.";
+    let spoken = false;
+
+    const doSpeak = () => {
+      if (spoken) return;
+      spoken = true;
+      this.ensureAudioContext();
+      this.playJarvisBoot();
+      setTimeout(() => {
+        this.speak(msg);
+      }, 450);
+      document.removeEventListener('click',       doSpeak);
+      document.removeEventListener('keydown',     doSpeak);
+      document.removeEventListener('touchstart',  doSpeak);
+      document.removeEventListener('pointerdown', doSpeak);
+    };
+
+    // Intentar reproducir directamente tras un breve momento (algunos navegadores lo permiten)
+    setTimeout(() => {
+      if (!spoken && this.synth) {
+        try {
+          doSpeak();
+        } catch (_) {}
+      }
+    }, 700);
+
+    // Respaldo infalible para política de autoplay de navegadores (Chrome/Edge/Android)
+    document.addEventListener('click',       doSpeak, { once: true, passive: true });
+    document.addEventListener('keydown',     doSpeak, { once: true, passive: true });
+    document.addEventListener('touchstart',  doSpeak, { once: true, passive: true });
+    document.addEventListener('pointerdown', doSpeak, { once: true, passive: true });
   }
 
   _showMicPermissionAlert() {
@@ -489,3 +525,6 @@ class AgroAudioSystem {
 
 // ─── Instancia global ───────────────────────────────────────────────────────
 window.agroAudio = new AgroAudioSystem();
+
+// Hablar la bienvenida al primer toque/clic del usuario
+window.agroAudio.speakWelcome();
