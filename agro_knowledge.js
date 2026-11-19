@@ -1,4 +1,3 @@
-Reemplazando lineas 775..790 (16 lineas)
 /**
  * AGROEMETA - Base de Conocimiento Experto & Motor Cognitivo AGI
  * Especialidad: Agronomía de Precisión, Mecánica y Maquinaria Agrícola, Diagnóstico Inteligente.
@@ -471,7 +470,7 @@ ${can.detalles}
   // Generación principal AGI con razonamiento de mayordomo
   async ask(prompt) {
     prompt = prompt.trim();
-    if (!prompt) return "A sus órdenes, caballero. ¿En qué asunto agronómico, mecánico o general puedo servirle?";
+    if (!prompt) return "Listo y en línea. Contame en qué puedo ayudarte: agronomía, maquinaria, suelos, cultivos o cualquier consulta técnica.";
 
     // Si cuenta con su llave de Gemini, procesamos con toda la potencia de Google
     if (this.hasApiKey()) {
