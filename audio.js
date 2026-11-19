@@ -1,81 +1,39 @@
 /**
- * AGROEMETA - Subsistema de Audio, Micrófono y Voz Jarvis
+ * AGROEMETA - Subsistema de Audio JARVIS
+ * Voz grave, clara y natural en español. Micrófono integrado al chat.
  */
 
 class AgroAudioSystem {
   constructor() {
-    this.audioCtx = null;
-    this.recognition = null;
-    this.synth = window.speechSynthesis;
-    this.isListening = false;
-    this.handsFreeMode = false;
-    this.selectedVoice = null;
-    this.onSpeechResult = null;
-    this.onListeningChange = null;
-    this.onSpeakingChange = null;
-    this.onSubtitleChange = null;
-    this.wakeWord = "agroemeta";
+    this.audioCtx       = null;
+    this.recognition    = null;
+    this.synth          = window.speechSynthesis;
+    this.isListening    = false;
+    this.handsFreeMode  = false;
+    this.selectedVoice  = null;
     this.currentUtterance = null;
-    this.isPaused = false;
-    this.isSpeaking = false;
-    this.voiceRate = 1.0;
-    this.voiceQueue = [];
-    this.isProcessingQueue = false;
-    this.subtitleElement = null;
-    this.subtitleStatusElement = null;
+    this.isPaused       = false;
+    this.voiceRate      = 0.92;   // Ritmo JARVIS: ligeramente más lento que lo normal
+    this.voicePitch     = 0.80;   // Tono grave estilo JARVIS
+    this.voiceVolume    = 1.0;
+    this.isSpeaking     = false;
 
-    this.subtitlesPanel = document.getElementById('subtitlesPanel');
-    this.subtitleTextEl = document.getElementById('subtitleText');
-    this.subtitleStatusEl = document.getElementById('subtitleStatus');
+    // Callbacks
+    this.onSpeechResult    = null;
+    this.onListeningChange = null;
+    this.onSpeakingChange  = null;
+    this.showSubtitles     = null;
+    this.hideSubtitles     = null;
 
-    this.setupSubtitlePanel();
     this.initAudioContext();
     this.initVoices();
     this.initRecognition();
   }
 
-  setupSubtitlePanel() {
-    if (!this.subtitlesPanel) {
-      this.subtitlesPanel = document.createElement('div');
-      this.subtitlesPanel.id = 'subtitlesPanel';
-      this.subtitlesPanel.className = 'subtitles-panel';
-      this.subtitlesPanel.innerHTML = `
-        <div class="subtitle-text" id="subtitleText">...</div>
-        <div class="subtitle-status" id="subtitleStatus">Listo</div>
-      `;
-      document.body.appendChild(this.subtitlesPanel);
-      this.subtitleTextEl = document.getElementById('subtitleText');
-      this.subtitleStatusEl = document.getElementById('subtitleStatus');
-    }
-  }
-
-  showSubtitles(text, status = 'Hablando') {
-    if (this.subtitleTextEl) {
-      this.subtitleTextEl.textContent = text;
-      this.subtitlesPanel.classList.add('visible');
-    }
-    if (this.subtitleStatusEl) {
-      this.subtitleStatusEl.textContent = status;
-    }
-    if (this.onSubtitleChange) {
-      this.onSubtitleChange(text, status);
-    }
-  }
-
-  hideSubtitles() {
-    if (this.subtitlesPanel) {
-      this.subtitlesPanel.classList.remove('visible');
-    }
-    if (this.onSubtitleChange) {
-      this.onSubtitleChange('', 'Listo');
-    }
-  }
-
+  // ─── AudioContext ───────────────────────────────────────────────────────────
   initAudioContext() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-      this.audioCtx = new AudioContext();
-    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) this.audioCtx = new AC();
   }
 
   ensureAudioContext() {
@@ -84,271 +42,406 @@ class AgroAudioSystem {
     }
   }
 
-  playBeep(freq = 880, duration = 0.1, type = "sine") {
+  // ─── Sonidos JARVIS ─────────────────────────────────────────────────────────
+  playBeep(freq = 880, duration = 0.08, type = "sine") {
     try {
       this.ensureAudioContext();
       if (!this.audioCtx) return;
-      const osc = this.audioCtx.createOscillator();
+      const osc  = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
       osc.type = type;
       osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.07, this.audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + duration);
       osc.connect(gain);
       gain.connect(this.audioCtx.destination);
       osc.start();
       osc.stop(this.audioCtx.currentTime + duration);
-    } catch (e) {
-      console.warn("Audio feedback error:", e);
-    }
+    } catch (_) {}
   }
 
+  // Secuencia de arranque JARVIS: cuatro notas ascendentes
   playJarvisBoot() {
     try {
       this.ensureAudioContext();
       if (!this.audioCtx) return;
       const now = this.audioCtx.currentTime;
-      [440, 659.25, 880, 1318.5].forEach((freq, i) => {
-        const osc = this.audioCtx.createOscillator();
+      [330, 440, 554, 659].forEach((freq, i) => {
+        const osc  = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
-        osc.frequency.setValueAtTime(freq, now + i * 0.08);
-        gain.gain.setValueAtTime(0.07, now + i * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + 0.35);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.09);
+        gain.gain.setValueAtTime(0.07, now + i * 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.3);
         osc.connect(gain);
         gain.connect(this.audioCtx.destination);
-        osc.start(now + i * 0.08);
-        osc.stop(now + i * 0.08 + 0.35);
+        osc.start(now + i * 0.09);
+        osc.stop(now + i * 0.09 + 0.3);
       });
     } catch (_) {}
   }
 
+  // Chime de micrófono activado
   playListeningChime() {
     try {
       this.ensureAudioContext();
       if (!this.audioCtx) return;
-      const now = this.audioCtx.currentTime;
-      const osc = this.audioCtx.createOscillator();
+      const now  = this.audioCtx.currentTime;
+      const osc  = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
       gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
       osc.connect(gain);
       gain.connect(this.audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.25);
+      osc.stop(now + 0.28);
     } catch (_) {}
   }
 
+  // Ping de confirmación (resultado de voz recibido)
   playSuccessPing() {
     try {
       this.ensureAudioContext();
       if (!this.audioCtx) return;
       const now = this.audioCtx.currentTime;
-      [880, 1174.66].forEach((f, i) => {
-        const osc = this.audioCtx.createOscillator();
+      [660, 880].forEach((f, i) => {
+        const osc  = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
         osc.frequency.setValueAtTime(f, now + i * 0.1);
-        gain.gain.setValueAtTime(0.08, now + i * 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.2);
+        gain.gain.setValueAtTime(0.07, now + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.18);
         osc.connect(gain);
         gain.connect(this.audioCtx.destination);
         osc.start(now + i * 0.1);
-        osc.stop(now + i * 0.1 + 0.2);
+        osc.stop(now + i * 0.1 + 0.18);
       });
     } catch (_) {}
   }
 
-  initVoices() {
-    const loadVoices = () => {
-      const voices = this.synth.getVoices();
-      const esVoices = voices.filter(v => v.lang.startsWith("es"));
-      const preferred = esVoices.find(v =>
-        v.name.includes("Raul") ||
-        v.name.includes("Pablo") ||
-        v.name.includes("Alvaro") ||
-        v.name.includes("Google español") ||
-        v.name.includes("Natural") ||
-        v.name.includes("Sabina") ||
-        v.name.includes("Castilian")
-      ) || esVoices[0] || voices[0];
-      this.selectedVoice = preferred;
-    };
-    if (this.synth.onvoiceschanged !== undefined) {
-      this.synth.onvoiceschanged = loadVoices;
+  // ─── Voces JARVIS ───────────────────────────────────────────────────────────
+  // Prioridad: voces masculinas graves en español
+  selectBestVoice(voices) {
+    const es = voices.filter(v => v.lang.startsWith("es"));
+    const all = voices;
+
+    // Lista de preferencia por nombre (grave, masculino, natural)
+    const priority = [
+      "Microsoft Raul",       // Windows 11 - es-MX (muy buena)
+      "Microsoft Raul Online",
+      "Raul",
+      "Jorge",                // macOS español
+      "Microsoft Pablo",
+      "Pablo",
+      "Microsoft Alvaro",
+      "Alvaro",
+      "Google español",
+      "Google Spanish",
+      "Microsoft Carlos",
+      "Carlos",
+      "Miguel",
+      "Diego",
+    ];
+
+    for (const name of priority) {
+      const found = all.find(v => v.name.includes(name));
+      if (found) return found;
     }
-    loadVoices();
+
+    // Si no encuentra ninguna preferida, tomar la primera en español
+    return es[0] || all[0] || null;
   }
 
+  initVoices() {
+    const load = () => {
+      const voices = this.synth.getVoices();
+      if (voices.length > 0) {
+        this.selectedVoice = this.selectBestVoice(voices);
+        console.log("[AGROEMETA Audio] Voz seleccionada:", this.selectedVoice?.name || "default");
+      }
+    };
+    if (typeof this.synth.onvoiceschanged !== "undefined") {
+      this.synth.onvoiceschanged = load;
+    }
+    load();
+    // Segundo intento por si las voces tardan en cargar
+    setTimeout(load, 500);
+    setTimeout(load, 1500);
+  }
+
+  // Devuelve las voces disponibles en español para que el usuario pueda elegir
+  getAvailableVoices() {
+    const voices = this.synth.getVoices();
+    return voices.filter(v => v.lang.startsWith("es") || v.lang.startsWith("ES"));
+  }
+
+  setVoiceByName(name) {
+    const voices = this.synth.getVoices();
+    const found = voices.find(v => v.name === name);
+    if (found) {
+      this.selectedVoice = found;
+      console.log("[AGROEMETA Audio] Voz cambiada a:", found.name);
+    }
+  }
+
+  // ─── Reconocimiento de voz (Micrófono) ─────────────────────────────────────
   initRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn("Reconocimiento de voz no soportado por este navegador.");
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      console.warn("[AGROEMETA Audio] SpeechRecognition no soportado. Usa Chrome o Edge.");
       return;
     }
-    this.recognition = new SpeechRecognition();
-    this.recognition.lang = 'es-ES';
-    this.recognition.continuous = true;
+
+    this.recognition = new SR();
+    this.recognition.lang           = 'es-AR'; // Español argentino primero
+    this.recognition.continuous     = false;    // Un turno a la vez (más estable)
     this.recognition.interimResults = false;
     this.recognition.maxAlternatives = 1;
+
     this.recognition.onstart = () => {
       this.isListening = true;
+      this._setMicBtn(true);
       if (this.onListeningChange) this.onListeningChange(true);
     };
-    this.recognition.onend = () => {
-      this.isListening = false;
-      if (this.handsFreeMode) {
-        setTimeout(() => {
-          try {
-            if (this.handsFreeMode && !this.synth.speaking && !this.isPaused) {
-              this.recognition.start();
-            }
-          } catch (_) {}
-        }, 300);
-      }
-      if (this.onListeningChange) this.onListeningChange(false);
-    };
-    this.recognition.onerror = (event) => {
-      console.warn("Error en reconocimiento de voz:", event.error);
-      if (event.error === 'not-allowed') {
-        this.handsFreeMode = false;
-      }
-    };
+
     this.recognition.onresult = (event) => {
-      const lastIndex = event.results.length - 1;
-      const transcript = event.results[lastIndex][0].transcript.trim();
+      const transcript = event.results[event.results.length - 1][0].transcript.trim();
       if (!transcript) return;
       this.playSuccessPing();
-      if (this.onSpeechResult) {
-        this.onSpeechResult(transcript);
+      this._setMicBtn(false);
+      this.isListening = false;
+      if (this.onListeningChange) this.onListeningChange(false);
+
+      // Enviar al chat directamente
+      const input = document.getElementById('userInput');
+      if (input) {
+        input.value = transcript;
+        // Disparar el envío automáticamente
+        setTimeout(() => {
+          const sendBtn = document.getElementById('sendBtn');
+          if (sendBtn) sendBtn.click();
+        }, 100);
+      }
+
+      if (this.onSpeechResult) this.onSpeechResult(transcript);
+    };
+
+    this.recognition.onerror = (event) => {
+      console.warn("[AGROEMETA Audio] Error micrófono:", event.error);
+      this.isListening = false;
+      this._setMicBtn(false);
+      if (this.onListeningChange) this.onListeningChange(false);
+
+      if (event.error === 'not-allowed') {
+        this._showMicPermissionAlert();
+      } else if (event.error === 'no-speech') {
+        // Sin habla detectada — no hacer nada, el usuario puede intentar de nuevo
+      }
+    };
+
+    this.recognition.onend = () => {
+      // Si era manos libres y no está hablando, reiniciar la escucha
+      if (this.handsFreeMode && !this.isSpeaking) {
+        setTimeout(() => {
+          if (this.handsFreeMode && !this.isSpeaking) {
+            try { this.recognition.start(); } catch (_) {}
+          }
+        }, 400);
+      } else {
+        this.isListening = false;
+        this._setMicBtn(false);
+        if (this.onListeningChange) this.onListeningChange(false);
       }
     };
   }
 
+  // Alterna micrófono: un toque activa, otro desactiva
   toggleListening() {
     if (!this.recognition) {
-      alert("Su navegador no soporta SpeechRecognition. Use Google Chrome o Microsoft Edge para el modo por voz.");
+      this._showMicPermissionAlert();
       return;
     }
+    this.ensureAudioContext();
+
     if (this.isListening) {
       this.handsFreeMode = false;
-      this.recognition.stop();
+      try { this.recognition.stop(); } catch (_) {}
+      this._setMicBtn(false);
     } else {
       this.handsFreeMode = true;
       this.playListeningChime();
-      try {
-        this.recognition.start();
-      } catch (e) {
-        console.warn("Inicio de reconocimiento falló o ya activo:", e);
+      try { this.recognition.start(); } catch (e) {
+        console.warn("[AGROEMETA Audio] No se pudo iniciar el micrófono:", e);
       }
     }
   }
 
-  setHandsFree(enabled) {
-    this.handsFreeMode = enabled;
-    if (enabled) {
-      this.playListeningChime();
-      try {
-        if (!this.isListening && this.recognition) this.recognition.start();
-      } catch (_) {}
+  _setMicBtn(active) {
+    const btn = document.getElementById('micToggleBtn');
+    if (!btn) return;
+    if (active) {
+      btn.classList.add('mic-active');
+      btn.querySelector('span') && (btn.querySelector('span').textContent = '🔴');
+      btn.title = "Micrófono activo - Hablá ahora";
     } else {
-      if (this.recognition && this.isListening) this.recognition.stop();
+      btn.classList.remove('mic-active');
+      btn.querySelector('span') && (btn.querySelector('span').textContent = '🎙️');
+      btn.title = "Activar micrófono";
     }
   }
 
+  _showMicPermissionAlert() {
+    const chatFeed = document.getElementById('chatFeed');
+    if (chatFeed) {
+      const row = document.createElement('div');
+      row.className = 'bubble-row bubble-agroemeta';
+      row.innerHTML = `
+        <div class="avatar-tag">AGROEMETA</div>
+        <div class="bubble-content">
+          Para usar el micrófono necesito permiso del navegador. Fijate en la barra de direcciones: aparece un ícono de cámara/micrófono — hacé clic ahí y seleccioná <strong>Permitir</strong>. Después intentá de nuevo.
+        </div>
+      `;
+      chatFeed.appendChild(row);
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+  }
+
+  // ─── Síntesis de voz (Hablar) ───────────────────────────────────────────────
   speak(text) {
-    if (!this.synth) return;
-    if (this.synth.speaking) {
-      this.synth.cancel();
-    }
+    if (!this.synth || !text) return;
 
-    let textToSpeak = text;
-    if (text.includes("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")) {
-      const segments = text.split("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      textToSpeak = segments[0] + (segments[2] ? " " + segments[2] : "");
-    }
+    // Limpiar texto técnico antes de leer
+    const clean = this._cleanForSpeech(text);
+    if (!clean || clean.length < 2) return;
 
-    const cleanText = textToSpeak
-      .replace(/\[.*?\]/g, '')
-      .replace(/[#*`_~━✦•]/g, '')
-      .replace(/•/g, '')
-      .replace(/\n+/g, '. ')
-      .trim();
-
-    if (!cleanText) return;
-
-    const wasListening = this.isListening;
-    if (wasListening && this.recognition) {
+    // Parar reconocimiento mientras habla (para no escucharse a sí mismo)
+    if (this.isListening && this.recognition) {
       try { this.recognition.stop(); } catch (_) {}
     }
 
-    this.voiceQueue = [];
-    this.isProcessingQueue = false;
-    this.addToQueue(cleanText);
-    this.processQueue();
-  }
-
-  addToQueue(text) {
-    this.voiceQueue.push(text);
-  }
-
-  async processQueue() {
-    if (this.isProcessingQueue || this.voiceQueue.length === 0) return;
-    this.isProcessingQueue = true;
-    while (this.voiceQueue.length > 0) {
-      const text = this.voiceQueue.shift();
-      await this.speakUtterance(text);
+    // Cancelar cualquier habla previa
+    if (this.synth.speaking || this.synth.pending) {
+      this.synth.cancel();
     }
-    this.isProcessingQueue = false;
+
+    // Esperar un tick para que el cancel surta efecto en Safari/Edge
+    setTimeout(() => this._doSpeak(clean), 60);
   }
 
-  speakUtterance(text) {
-    return new Promise((resolve) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (this.selectedVoice) {
-        utterance.voice = this.selectedVoice;
+  _doSpeak(text) {
+    // Texto muy largo: cortarlo en oraciones para que suene natural
+    const chunks = this._splitIntoChunks(text, 220);
+    let idx = 0;
+
+    const speakNext = () => {
+      if (idx >= chunks.length) {
+        this.isSpeaking = false;
+        this._onSpeechEnd();
+        return;
       }
-      utterance.lang = 'es-ES';
-      utterance.rate = this.voiceRate;
-      utterance.pitch = 0.95;
-      this.isSpeaking = true;
-      this.showSubtitles(text, 'Hablando');
-      this.updateVoiceStatus('Hablando');
+      const chunk = chunks[idx++];
+      const utt = new SpeechSynthesisUtterance(chunk);
 
-      utterance.onstart = () => {
+      if (this.selectedVoice) utt.voice = this.selectedVoice;
+      utt.lang   = 'es-AR';
+      utt.rate   = this.voiceRate;
+      utt.pitch  = this.voicePitch;
+      utt.volume = this.voiceVolume;
+
+      utt.onstart = () => {
         this.isSpeaking = true;
+        this.currentUtterance = utt;
         if (this.onSpeakingChange) this.onSpeakingChange(true);
+        // Mostrar subtítulos
+        if (this.showSubtitles) this.showSubtitles(chunk, 'Hablando');
+        this._updateStatus('Hablando');
       };
 
-      utterance.onend = () => {
+      utt.onend = () => {
+        speakNext();
+      };
+
+      utt.onerror = () => {
         this.isSpeaking = false;
-        this.hideSubtitles();
-        this.updateVoiceStatus('Listo');
-        if (this.onSpeakingChange) this.onSpeakingChange(false);
-        resolve();
+        this._onSpeechEnd();
       };
 
-      utterance.onerror = () => {
-        this.isSpeaking = false;
-        this.hideSubtitles();
-        this.updateVoiceStatus('Listo');
-        if (this.onSpeakingChange) this.onSpeakingChange(false);
-        resolve();
-      };
+      this.synth.speak(utt);
+    };
 
-      this.synth.speak(utterance);
-      this.currentUtterance = utterance;
-    });
+    this.isSpeaking = true;
+    speakNext();
+  }
+
+  _onSpeechEnd() {
+    if (this.hideSubtitles) this.hideSubtitles();
+    this._updateStatus('Listo');
+    if (this.onSpeakingChange) this.onSpeakingChange(false);
+    this.currentUtterance = null;
+
+    // Reactivar micrófono en modo manos libres
+    if (this.handsFreeMode && this.recognition) {
+      setTimeout(() => {
+        if (this.handsFreeMode && !this.isSpeaking) {
+          try { this.recognition.start(); } catch (_) {}
+        }
+      }, 500);
+    }
+  }
+
+  // Divide texto en chunks respetando oraciones
+  _splitIntoChunks(text, maxLen) {
+    if (text.length <= maxLen) return [text];
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    const chunks = [];
+    let current = '';
+    for (const s of sentences) {
+      if ((current + ' ' + s).trim().length <= maxLen) {
+        current = (current + ' ' + s).trim();
+      } else {
+        if (current) chunks.push(current);
+        current = s;
+      }
+    }
+    if (current) chunks.push(current);
+    return chunks.length ? chunks : [text.substring(0, maxLen)];
+  }
+
+  // Limpia el texto para que suene natural al leerlo
+  _cleanForSpeech(text) {
+    return text
+      .replace(/```[\s\S]*?```/g, '')          // bloques de código
+      .replace(/`[^`]+`/g, '')                  // código inline
+      .replace(/\[.*?\]\(.*?\)/g, '')           // links markdown
+      .replace(/#{1,4}\s*/g, '')                // títulos markdown
+      .replace(/\*\*(.+?)\*\*/g, '$1')          // **negrita**
+      .replace(/\*(.+?)\*/g, '$1')              // *cursiva*
+      .replace(/━+/g, '')                       // líneas decorativas
+      .replace(/[•✦▪▸→←↑↓]/g, '')             // bullets decorativos
+      .replace(/\[DIAGNÓSTICO.*?\]/g, '')        // etiquetas técnicas
+      .replace(/\[ANÁLISIS.*?\]/g, '')
+      .replace(/\[PROTOCOLO.*?\]/g, '')
+      .replace(/\[ALERTA.*?\]/g, '')
+      .replace(/\[CÁLCULO.*?\]/g, '')
+      .replace(/\[MANEJO.*?\]/g, '')
+      .replace(/\[REGULACIÓN.*?\]/g, '')
+      .replace(/\[EDAFOLOGÍA.*?\]/g, '')
+      .replace(/\[TELEMETRÍA.*?\]/g, '')
+      .replace(/\n{2,}/g, '. ')                 // saltos de línea múltiples
+      .replace(/\n/g, ' ')                       // saltos de línea simples
+      .replace(/\s{2,}/g, ' ')                  // espacios múltiples
+      .replace(/📍|🧭|⬇️|🔊|🎙️|📄|🎨|✨/g, '') // emojis
+      .trim();
   }
 
   pauseSpeaking() {
     if (this.synth && this.synth.speaking && !this.isPaused) {
       this.synth.pause();
       this.isPaused = true;
-      this.hideSubtitles();
-      this.updateVoiceStatus('Pausado');
-      if (this.onSpeakingChange) this.onSpeakingChange(false);
+      if (this.hideSubtitles) this.hideSubtitles();
+      this._updateStatus('Pausado');
     }
   }
 
@@ -356,46 +449,43 @@ class AgroAudioSystem {
     if (this.synth && this.synth.paused && this.isPaused) {
       this.synth.resume();
       this.isPaused = false;
-      this.updateVoiceStatus('Hablando');
-      if (this.onSpeakingChange) this.onSpeakingChange(true);
+      this._updateStatus('Hablando');
     }
   }
 
   stopSpeaking() {
-    if (this.synth && this.synth.speaking) {
-      this.synth.cancel();
-      this.isPaused = false;
-      this.isSpeaking = false;
-      this.hideSubtitles();
-      this.updateVoiceStatus('Listo');
-      if (this.onSpeakingChange) this.onSpeakingChange(false);
-    }
-    this.voiceQueue = [];
-    this.isProcessingQueue = false;
+    if (this.synth) this.synth.cancel();
+    this.isPaused   = false;
+    this.isSpeaking = false;
+    if (this.hideSubtitles) this.hideSubtitles();
+    this._updateStatus('Listo');
+    if (this.onSpeakingChange) this.onSpeakingChange(false);
   }
 
   setVoiceRate(rate) {
     this.voiceRate = parseFloat(rate);
-    if (this.currentUtterance) {
-      this.currentUtterance.rate = this.voiceRate;
-    }
   }
 
-  updateVoiceStatus(status) {
-    const statusEl = document.getElementById('voiceStatus');
-    if (statusEl) {
-      statusEl.textContent = status;
-    }
+  setVoicePitch(pitch) {
+    this.voicePitch = parseFloat(pitch);
+  }
+
+  _updateStatus(text) {
+    const el = document.getElementById('voiceStatus');
+    if (el) el.textContent = text;
   }
 
   getState() {
     return {
-      isSpeaking: this.isSpeaking,
-      isPaused: this.isPaused,
+      isSpeaking:  this.isSpeaking,
+      isPaused:    this.isPaused,
       isListening: this.isListening,
-      voiceRate: this.voiceRate
+      voiceRate:   this.voiceRate,
+      voicePitch:  this.voicePitch,
+      voice:       this.selectedVoice?.name || 'default'
     };
   }
 }
 
+// ─── Instancia global ───────────────────────────────────────────────────────
 window.agroAudio = new AgroAudioSystem();

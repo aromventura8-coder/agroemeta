@@ -20,7 +20,6 @@ module.exports = async (req, res) => {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const query = sanitizeInput(body.query || body.message || '');
-    const mode = body.mode || 'default';
 
     if (!query) {
       return res.status(400).json({ error: 'La consulta no puede estar vacía.' });
@@ -35,8 +34,12 @@ module.exports = async (req, res) => {
       });
     }
 
+    const contents = [
+      { role: 'user', parts: [{ text: query }] }
+    ];
+
     const payload = {
-      contents: [{ role: 'user', parts: [{ text: query }] }],
+      contents: contents,
       systemInstruction: {
         parts: [{
           text: `Eres Agroemeta AGI, un sistema de inteligencia artificial avanzada desarrollada en la Escuela Técnica E.M.E.T.A. N° 3130 de Tartagal, Salta, Argentina. Responde en español de forma clara y precisa usando "vos" o "tú". Domina agronomía, mecánica diésel y todas las materias escolares.`

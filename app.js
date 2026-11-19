@@ -154,6 +154,31 @@
       }
     });
 
+    // ── Selector de voz JARVIS ──────────────────────────────────────────────
+    const voiceSelector = document.getElementById("voiceSelector");
+    function populateVoiceSelector() {
+      if (!voiceSelector) return;
+      const voices = window.agroAudio.getAvailableVoices
+        ? window.agroAudio.getAvailableVoices()
+        : (window.speechSynthesis ? window.speechSynthesis.getVoices().filter(v => v.lang.startsWith("es")) : []);
+      if (voices.length === 0) return;
+      voiceSelector.innerHTML = voices.map(v =>
+        `<option value="${v.name}"${window.agroAudio.selectedVoice?.name === v.name ? " selected" : ""}>${v.name} (${v.lang})</option>`
+      ).join("");
+    }
+    populateVoiceSelector();
+    // Reintentar cuando las voces carguen (browser las carga async)
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => populateVoiceSelector();
+    }
+    setTimeout(populateVoiceSelector, 800);
+    setTimeout(populateVoiceSelector, 2000);
+
+    if (voiceSelector) voiceSelector.addEventListener("change", (e) => {
+      if (window.agroAudio.setVoiceByName) window.agroAudio.setVoiceByName(e.target.value);
+      showToast(`Voz seleccionada: ${e.target.value}`);
+    });
+
     // ---------- Generar imagen ----------
     if (genImgBtn) genImgBtn.addEventListener("click", () => {
       const isVisible = imgGenPanel.style.display !== "none";

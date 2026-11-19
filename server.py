@@ -14,7 +14,6 @@ import urllib.request
 import urllib.error
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-# Forzar UTF-8 en stdout para Windows
 if sys.platform == "win32":
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
@@ -40,7 +39,7 @@ def get_gemini_key():
             return src.strip()
     return ""
 
-AGROEMETA_SYSTEM_PROMPT = """Eres Agroemeta AGI, un sistema de inteligencia artificial avanzado, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
+AGROEMETA_SYSTEM_PROMPT = """Eres Agroemeta AGI, un sistema de inteligencia artificial avanzada, omnisciente y multi-agente, con la distinción, templanza, precisión y fluidez de JARVIS.
 Nacido y desarrollado con orgullo en la Escuela Técnica E.M.E.T.A. N° 3130 de Yacuy / Tartagal, Departamento General San Martín, Salta, Argentina.
 Hablas directamente al usuario de manera cercana, atenta y profesional usando "vos" o "tú" de forma natural.
 
