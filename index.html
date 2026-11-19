@@ -7,6 +7,7 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#00d2ff">
   <link rel="stylesheet" href="/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body class="cinema-night">
   <div class="app-stage">
@@ -19,13 +20,20 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="btnBackup" class="pill-btn" title="💾 Guardar y descargar copia de seguridad del código actual">
+          <span class="btn-icon">💾</span>
+          <span class="btn-text">RESPALDO</span>
+        </button>
+        <button id="btnClearChat" class="pill-btn" title="Limpiar historial de conversación">
+          <span class="btn-icon">🗑️</span>
+        </button>
         <button id="voiceMuteBtn" class="pill-btn active" title="Alternar voz del mayordomo">
           <span class="btn-icon">🔊</span>
           <span class="btn-text">VOZ</span>
         </button>
-        <div id="agiStatusBtn" class="pill-btn active" title="Núcleo AGI en línea">
+        <div id="agiStatusBtn" class="pill-btn active" title="Núcleo AGI en línea y siempre activo">
           <span class="btn-dot"></span>
-          <span class="btn-text">AGI EN LÍNEA</span>
+          <span class="btn-text">AGI ACTIVO</span>
         </div>
       </div>
     </header>

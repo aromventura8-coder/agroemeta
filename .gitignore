@@ -22,3 +22,7 @@ __pycache__/
 # Sistema
 Thumbs.db
 desktop.ini
+
+# Backups generados localmente
+backups_agroemeta/backup_*
+*.zip

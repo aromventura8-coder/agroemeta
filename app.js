@@ -1,6 +1,7 @@
 /**
  * AGROEMETA - Interfaz de Mayordomo Inteligente
- * Con generación de imágenes, crear documentos, mejorar texto, controles de voz y subtítulos
+ * Arquitectura AGI con Conciencia Temporal, Respaldo Automático,
+ * Persistencia en LocalStorage y Resiliencia Total.
  */
 
 (function() {
@@ -8,6 +9,8 @@
     const ANTIGRAVITY_BACKEND_URL = (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin !== "null" && !window.location.origin.startsWith("file:"))
       ? window.location.origin
       : "http://127.0.0.1:8085";
+
+    const STORAGE_CHAT_KEY = "agroemeta_chat_history_v2";
 
     // Elementos DOM
     const chatFeed = document.getElementById("chatFeed");
@@ -20,6 +23,8 @@
     const voiceStopBtn = document.getElementById("voiceStopBtn");
     const voiceSpeedSelect = document.getElementById("voiceSpeedSelect");
     const voiceStatusEl = document.getElementById("voiceStatus");
+    const btnBackup = document.getElementById("btnBackup");
+    const btnClearChat = document.getElementById("btnClearChat");
     const genImgBtn = document.getElementById("genImgBtn");
     const createDocBtn = document.getElementById("createDocBtn");
     const improveTextBtn = document.getElementById("improveTextBtn");
@@ -46,13 +51,127 @@
     let generatedImages = [];
     let currentDocTask = null;
 
+    // ---------- TAREA 2: CONCIENCIA TEMPORAL EN TIEMPO REAL ----------
+    function getArgentinaDateTime() {
+      const now = new Date();
+      const dateOpts = { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const timeOpts = { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      return {
+        fecha: now.toLocaleDateString('es-AR', dateOpts),
+        hora: now.toLocaleTimeString('es-AR', timeOpts),
+        timestamp: now.toISOString()
+      };
+    }
+
     // ---------- Utilidades ----------
     function showToast(message) {
       if (!toastNotification) return;
       toastNotification.textContent = message;
       toastNotification.classList.add('visible');
-      setTimeout(() => toastNotification.classList.remove('visible'), 3000);
+      setTimeout(() => toastNotification.classList.remove('visible'), 3200);
     }
+
+    // ---------- TAREA 3: PERSISTENCIA EN LOCALSTORAGE ----------
+    function saveMessageToStorage(sender, text, type) {
+      try {
+        let history = JSON.parse(localStorage.getItem(STORAGE_CHAT_KEY) || "[]");
+        history.push({
+          sender,
+          text,
+          type,
+          time: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+        });
+        // Conservar hasta 60 mensajes para mantener rendimiento
+        if (history.length > 60) history = history.slice(-60);
+        localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(history));
+      } catch (_) {}
+    }
+
+    function loadHistoryFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_CHAT_KEY);
+        if (!raw) return;
+        const history = JSON.parse(raw);
+        if (!Array.isArray(history) || history.length === 0) return;
+
+        // Renderizar mensajes previos respetando el indicador y bienvenida
+        history.forEach(item => {
+          appendMessage(item.sender, item.text, item.type, false);
+        });
+      } catch (_) {}
+    }
+
+    function clearChatHistory() {
+      localStorage.removeItem(STORAGE_CHAT_KEY);
+      // Mantener solo el thinkingIndicator y la bienvenida
+      const bubbles = chatFeed.querySelectorAll('.bubble-row:not(#welcomeBubble)');
+      bubbles.forEach(b => b.remove());
+      showToast("Historial de conversación reiniciado");
+    }
+
+    // ---------- TAREA 1: BOTÓN DE RESPALDO (ZIP DESCARGABLE) ----------
+    async function triggerBackupDownload() {
+      showToast("Preparando copia de seguridad...");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
+      const zipFilename = `AGROEMETA_BACKUP_${timestamp}.zip`;
+
+      // 1. Si estamos conectados a un servidor local, llamar al endpoint de respaldo en disco
+      try {
+        fetch(`${ANTIGRAVITY_BACKEND_URL}/api/backup`, { method: "POST" }).catch(() => {});
+      } catch (_) {}
+
+      // 2. Generar el archivo ZIP descargable para el usuario
+      if (typeof JSZip !== "undefined") {
+        try {
+          const zip = new JSZip();
+          const filesToBackup = [
+            "index.html", "app.js", "audio.js", "agro_knowledge.js",
+            "style.css", "server.py", "package.json", "manifest.json",
+            "sw.js", "vercel.json", "netlify.toml", "README.md"
+          ];
+
+          await Promise.all(filesToBackup.map(async (filename) => {
+            try {
+              const res = await fetch(filename);
+              if (res.ok) {
+                const text = await res.text();
+                zip.file(filename, text);
+              }
+            } catch (_) {}
+          }));
+
+          const blob = await zip.generateAsync({ type: "blob" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = zipFilename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          showToast("💾 Respaldo descargado con éxito");
+          return;
+        } catch (err) {
+          console.warn("Fallo al crear ZIP con JSZip:", err);
+        }
+      }
+
+      // Fallback si JSZip no está disponible: descargar snapshot JSON del estado
+      const snapshot = {
+        app: "AGROEMETA",
+        fecha: getArgentinaDateTime(),
+        chatHistory: JSON.parse(localStorage.getItem(STORAGE_CHAT_KEY) || "[]")
+      };
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `AGROEMETA_DATOS_${timestamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("💾 Respaldo de datos descargado");
+    }
+
+    if (btnBackup) btnBackup.addEventListener("click", triggerBackupDownload);
+    if (btnClearChat) btnClearChat.addEventListener("click", clearChatHistory);
 
     // ---------- Galería de imágenes ----------
     function renderImageGallery() {
@@ -167,7 +286,6 @@
       ).join("");
     }
     populateVoiceSelector();
-    // Reintentar cuando las voces carguen (browser las carga async)
     if (window.speechSynthesis) {
       window.speechSynthesis.onvoiceschanged = () => populateVoiceSelector();
     }
@@ -188,7 +306,7 @@
 
     if (btnGenerateImg) btnGenerateImg.addEventListener("click", async () => {
       const prompt = imgPromptInput ? imgPromptInput.value.trim() : "";
-      if (!prompt) { showToast("Ingresa una descripción para la imagen"); return; }
+      if (!prompt) { showToast("Ingresá una descripción para la imagen"); return; }
       btnGenerateImg.textContent = "Generando...";
       btnGenerateImg.disabled = true;
       try {
@@ -255,7 +373,7 @@
     if (btnCreateDocTask) btnCreateDocTask.addEventListener("click", async () => {
       const description = docTaskInput ? docTaskInput.value.trim() : "";
       if (!description && !currentDocTask) {
-        showToast("Ingresa una descripción o selecciona un archivo");
+        showToast("Ingresá una descripción o seleccioná un archivo");
         return;
       }
       btnCreateDocTask.textContent = "Creando...";
@@ -300,7 +418,7 @@
 
     if (btnImproveText) btnImproveText.addEventListener("click", async () => {
       const text = improveTextInput ? improveTextInput.value.trim() : "";
-      if (!text) { showToast("Ingresa el texto que quieres mejorar"); return; }
+      if (!text) { showToast("Ingresá el texto que querés mejorar"); return; }
       btnImproveText.textContent = "Mejorando...";
       btnImproveText.disabled = true;
       try {
@@ -318,9 +436,8 @@
           throw new Error("sin texto");
         }
       } catch (e) {
-        // Fallback local via agroEngine
         try {
-          const mejorado = await window.agroEngine.ask(`Mejora y corrige este texto de forma profesional:\n\n${text}`);
+          const mejorado = await window.agroEngine.ask(`Mejora y corrige este texto de forma profesional manteniendo el sentido:\n\n${text}`);
           if (improveTextInput) improveTextInput.value = mejorado;
           appendMessage("AGROEMETA", `Texto mejorado:\n\n${mejorado}`, "agroemeta");
           showToast("Texto mejorado");
@@ -336,12 +453,13 @@
       }
     });
 
-    // ---------- Chat principal ----------
+    // ---------- TAREA 3: CHAT PRINCIPAL CON RESILIENCIA Y MANEJO DE ERRORES ----------
     async function handleUserQuery(query) {
       if (window.agroAudio) window.agroAudio.playBeep(920, 0.06);
       appendMessage("USUARIO", query, "user");
       setThinkingState(true);
 
+      const temporalInfo = getArgentinaDateTime();
       const lower = query.toLowerCase();
 
       // Detección: generar imagen
@@ -407,7 +525,7 @@
               appendDocumentInChat(data.documentUrl, description, data.fileName || "documento.pdf");
             } else throw new Error("sin url");
           } catch (e) {
-            const docContent = `# ${description}\n\nGenerado por Agroemeta AGI\nFecha: ${new Date().toLocaleDateString()}\n`;
+            const docContent = `# ${description}\n\nGenerado por Agroemeta AGI\nFecha: ${temporalInfo.fecha} ${temporalInfo.hora}\n`;
             const blob = new Blob([docContent], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             appendDocumentInChat(url, description, `${description.replace(/\s+/g, "_")}.txt`);
@@ -416,34 +534,43 @@
         }
       }
 
-      // ===== LÓGICA PRINCIPAL DE CONSULTA CON TRIPLE FALLBACK =====
-      // 1º intento: serverless /api/chat (Netlify/Vercel)
-      // 2º intento: motor cognitivo local window.agroEngine (siempre disponible)
-
+      // ===== LÓGICA DE RESPUESTA: RESILIENCIA CON TRY/CATCH Y RETRY =====
       let answered = false;
 
-      // Intento 1: Backend serverless
+      // 1. Intento con Backend Serverless (/api/chat)
       if (!window.location.origin.startsWith("file:")) {
-        try {
-          const res = await fetch(`${ANTIGRAVITY_BACKEND_URL}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify({ query, mode: "default" })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const reply = data.response || data.text || data.message || "";
-            if (reply && reply.trim().length > 3) {
-              setThinkingState(false);
-              appendMessage("AGROEMETA", reply, "agroemeta");
-              if (!isVoiceMuted && window.agroAudio) window.agroAudio.speak(reply);
-              answered = true;
+        for (let intento = 1; intento <= 2 && !answered; intento++) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 9500);
+
+            const res = await fetch(`${ANTIGRAVITY_BACKEND_URL}/api/chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Accept": "application/json" },
+              body: JSON.stringify({ query, temporal: temporalInfo, mode: "default" }),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+              const data = await res.json();
+              const reply = data.response || data.text || data.message || "";
+              if (reply && reply.trim().length > 3) {
+                setThinkingState(false);
+                appendMessage("AGROEMETA", reply, "agroemeta");
+                if (!isVoiceMuted && window.agroAudio) window.agroAudio.speak(reply);
+                answered = true;
+                break;
+              }
             }
+          } catch (err) {
+            // Si el primer intento falla por red, reintenta inmediatamente
+            if (intento === 1) await new Promise(r => setTimeout(r, 400));
           }
-        } catch (_) { /* cae al motor local */ }
+        }
       }
 
-      // Intento 2: Motor cognitivo local (siempre como fallback)
+      // 2. Fallback Transparente al Motor Cognitivo Local (agroEngine)
       if (!answered) {
         try {
           const localReply = await window.agroEngine.ask(query);
@@ -453,11 +580,11 @@
           answered = true;
         } catch (localErr) {
           setThinkingState(false);
-          const errMsg = localErr.message && localErr.message.length > 10
+          const safeMessage = localErr.message && localErr.message.length > 10
             ? localErr.message
-            : "Estoy procesando tu consulta. Si ingresaste una clave Gemini, verificala. Si no, puedo ayudarte con mi base de conocimiento interna sobre agronomia, maquinaria y la escuela.";
-          appendMessage("AGROEMETA", errMsg, "agroemeta");
-          if (!isVoiceMuted && window.agroAudio) window.agroAudio.speak(errMsg);
+            : `Estoy en línea procesando tu consulta (${temporalInfo.hora}). Contame los datos específicos del tema y lo resolvemos juntos.`;
+          appendMessage("AGROEMETA", safeMessage, "agroemeta");
+          if (!isVoiceMuted && window.agroAudio) window.agroAudio.speak(safeMessage);
         }
       }
     }
@@ -468,24 +595,30 @@
         if (isThinking) livingCore.classList.add("thinking");
         else livingCore.classList.remove("thinking");
       }
-      if (orbStateText) orbStateText.textContent = isThinking ? "Examinando con precision..." : "En linea y listo para ayudarte";
+      if (orbStateText) orbStateText.textContent = isThinking ? "Analizando con precisión..." : "En línea y listo para ayudarte";
     }
 
-    function appendMessage(sender, text, type) {
+    function appendMessage(sender, text, type, saveToStorage = true) {
       const row = document.createElement("div");
       row.className = `bubble-row bubble-${type}`;
-      // Renderizar markdown básico: **negrita**, saltos de línea
+
+      // Formato Markdown básico
       let html = text
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/### (.+)/g, '<h4>$1</h4>')
         .replace(/## (.+)/g, '<h3>$1</h3>')
         .replace(/\n/g, '<br>');
+
       row.innerHTML = `
         <div class="avatar-tag">${sender}</div>
         <div class="bubble-content">${html}</div>
       `;
       chatFeed.appendChild(row);
       chatFeed.scrollTop = chatFeed.scrollHeight;
+
+      if (saveToStorage && sender !== "AGROEMETA_INIT") {
+        saveMessageToStorage(sender, text, type);
+      }
     }
 
     // ---------- Eventos ----------
@@ -517,7 +650,7 @@
       handleUserQuery(text);
     }
 
-    // ---------- Reacciones de voz y micrófono sobre el Núcleo AGI (Living Orb) ----------
+    // ---------- Reacciones sobre el Núcleo AGI (Living Orb) ----------
     const livingOrb = document.getElementById("livingOrb");
     if (livingOrb) {
       livingOrb.style.cursor = "pointer";
@@ -556,6 +689,9 @@
     if (micToggleBtn) micToggleBtn.addEventListener("click", () => {
       if (window.agroAudio) window.agroAudio.toggleListening();
     });
+
+    // Cargar historial previo guardado en localStorage
+    loadHistoryFromStorage();
   };
 
   if (document.readyState === 'loading') {
