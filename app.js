@@ -45,6 +45,7 @@
     let isVoiceMuted = false;
     let generatedImages = [];
     let currentDocTask = null;
+    let textToImprove = null;
 
     // ---------- Utilidades ----------
     function escapeQuotes(str) {
@@ -394,7 +395,7 @@
         const res = await fetch(`${ANTIGRAVITY_BACKEND_URL}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify({ query: query, mode: "default" })
+          body: JSON.stringify({ query, mode: "default" })
         });
         const data = await res.json();
         const reply = data.response || data.text || data.message || "A sus órdenes, caballero.";
